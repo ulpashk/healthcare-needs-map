@@ -1,0 +1,158 @@
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+.histogram-container svg:focus,
+.histogram-container svg *:focus {
+  outline: none;
+}
+
+
+/* Healthcare Dashboard Styles */
+
+.histogram-container {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans",
+    "Droid Sans", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Chart animations */
+.histogram-container .recharts-bar-rectangle {
+  transition: all 0.3s ease;
+}
+
+.histogram-container .recharts-bar-rectangle:hover {
+  filter: brightness(1.1);
+}
+
+/* Tooltip styles */
+.recharts-tooltip-wrapper {
+  z-index: 1000;
+}
+
+/* Custom scrollbar for tables */
+.table-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Custom scrollbar for detail card sidebar */
+.detail-card-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.detail-card-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.detail-card-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #cbd5e1, #94a3b8);
+  border-radius: 10px;
+}
+
+.detail-card-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #94a3b8, #64748b);
+}
+
+/* Loading animations */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.loading-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Healthcare theme colors */
+:root {
+  --healthcare-primary: #0ea5e9;
+  --healthcare-secondary: #10b981;
+  --healthcare-accent: #f59e0b;
+  --healthcare-danger: #ef4444;
+  --healthcare-success: #22c55e;
+}
+
+/* Responsive design helpers */
+@media (max-width: 768px) {
+  .histogram-container {
+    padding: 1rem;
+  }
+
+  .histogram-container h1,
+  .histogram-container h2,
+  .histogram-container h3 {
+    font-size: 1rem;
+  }
+}
+
+.badge {
+  font-size: 9px;
+  text-transform: uppercase;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 12px;
+  color: white;
+}
+.bg-green { background-color: #2E7D32; }
+.bg-lightgreen { background-color: #66BB6A; }
+.bg-yellow { background-color: #FBC02D; color: #333; }
+.bg-orange { background-color: #EF6C00; }
+.bg-red { background-color: #C62828; }
+.bgr { background-color: #9E9E9E; }
