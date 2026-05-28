@@ -41,35 +41,6 @@ const MapView = forwardRef(({
     }
   };
 
-  // useImperativeHandle(ref, () => ({
-  //   zoomToLocation: (item) => {
-  //     if (!mapRef.current) return;
-
-  //     const lng = parseFloat(item.lng || item.longitude);
-  //     const lat = parseFloat(item.lat || item.latitude);
-
-  //     if (isNaN(lng) || isNaN(lat)) return;
-
-  //     removeExistingPopup();
-
-  //     mapRef.current.flyTo({
-  //       center: [lng, lat],
-  //       zoom: 14,
-  //       essential: true
-  //     });
-
-  //     activePopupRef.current = new maplibregl.Popup({ offset: 10, closeButton: true })
-  //       .setLngLat([lng, lat])
-  //       .setHTML(MapLayersManager.getPopupContent(item))
-  //       .addTo(mapRef.current);
-        
-  //     if (item.unified_id || item.id) {
-  //         setBuildingData(item);
-  //         setShowDetailCard(true);
-  //     }
-  //   }
-  // }));
-
   useImperativeHandle(ref, () => ({
     zoomToLocation: (item) => {
       if (!mapRef.current) return;

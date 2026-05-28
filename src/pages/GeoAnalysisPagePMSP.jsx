@@ -5,7 +5,7 @@ import { HealthcareService } from "../services/apiService"
 import GeoFilterPanel from "../components/GeoAnalysisPage/GeoFilterPanel"
 import AnalyticsPanel from "../components/GeoAnalysisPage/MapLegend/AnalyticsPanel"
 
-export default function GeoAnalysisPage() {
+export default function GeoAnalysisPagePMSP() {
   const [geoMode, setGeoMode] = useState("walkaccess");
   const [mapData, setMapData] = useState(null);
   const [totalCount, setTotalCount] = useState(0);

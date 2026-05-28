@@ -1,6 +1,6 @@
 import { Building2, BarChart3, RotateCcw } from "lucide-react";
-import DistrictSummaryModal from "../Modal/DistrictSummaryModal";
-import BuildingAgeModal from "../Modal/BuildingAgeModal";
+// import DistrictSummaryModal from "../Modal/DistrictSummaryModal";
+// import BuildingAgeModal from "../Modal/BuildingAgeModal";
 
 export default function Analytics({ setActiveModal, activeModal, onReset }) {
   return (

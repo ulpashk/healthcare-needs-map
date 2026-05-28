@@ -3,8 +3,10 @@ import './App.css';
 import {BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Header from './components/general/HeaderV';
-import BuildingsPage from './pages/BuildingsPage';
-import GeoAnalysisPage from './pages/GeoAnalysisPage';
+import BuildingsPagePMSP from './pages/BuildingsPagePMSP';
+import GeoAnalysisPagePMSP from './pages/GeoAnalysisPagePMSP';
+import BuildingsPageHospitals from './pages/BuildingsPageHospitals';
+import GeoAnalysisPageHospitals from './pages/GeoAnalysisPageHospitals';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,8 +29,10 @@ function App() {
           <main className="flex-1 overflow-hidden">
             <Routes>
               <Route path="/" element={<Navigate to="/pmsp/buildings" replace />} />
-              <Route path="/pmsp/buildings" element={<BuildingsPage/>}/>
-              <Route path="/pmsp/geo-analysis" element={<GeoAnalysisPage/>}/>
+              <Route path="/pmsp/buildings" element={<BuildingsPagePMSP/>}/>
+              <Route path="/pmsp/geo-analysis" element={<GeoAnalysisPagePMSP/>}/>
+              <Route path="/hospitals/buildings" element={<BuildingsPageHospitals/>}/>
+              <Route path="/hospitals/geo-analysis" element={<GeoAnalysisPageHospitals/>}/>
             </Routes>
           </main>
         </div>

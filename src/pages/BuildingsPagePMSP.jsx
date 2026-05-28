@@ -5,7 +5,7 @@ import MapView from "../components/PmspComponents/MapV"
 import MapFilter from "../components/PmspComponents/MapFilter/MapFilter"
 import BuildingRiskPanel from "../components/BuildingsPage/Modal/BuildingRiskPanel"
 
-export default function BuildingsPage() {
+export default function BuildingsPagePMSP() {
   const [selectedDistrict, setSelectedDistrict] = useState("")
   const [mapData, setMapData] = useState(null)
   const [selectedLayers, setSelectedLayers] = useState(["Все слои"]);
