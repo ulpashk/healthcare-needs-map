@@ -75,7 +75,7 @@ export default function Header({ setSelectedDistrict, selectedDistrict }) {
                 <div key={group.id} className="relative nav-dropdown-container">
                   <button
                     onClick={() => setActiveDropdown(activeDropdown === group.id ? null : group.id)}
-                    className={`flex items-center gap-1 rounded-md px-4 py-1.5 text-xs font-semibold transition-colors ${
+                    className={`flex items-center gap-1 rounded-md px-4 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
                       isParentActive(group.prefix) ? "bg-[#236FFF] text-white" : "bg-transparent text-gray-700 hover:bg-gray-100"
                     }`}
                   >

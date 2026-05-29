@@ -4,6 +4,7 @@ import HospitalFilter from '../components/HospitalComponents/HospitalFilter';
 import { HospitalService } from '../services/hospitalApiService';
 import RefusalsModal from '../components/HospitalComponents/Modals/RefusalsModal';
 import ProfilesDeficitModal from '../components/HospitalComponents/Modals/ProfilesDeficitModal';
+import OrgTypeGridPanel from '../components/HospitalComponents/OrgTypeGridPanel';
 
 export default function GeoAnalysisPageHospitals() {
   const [data, setData] = useState({
@@ -17,12 +18,14 @@ export default function GeoAnalysisPageHospitals() {
   
   const [loading, setLoading] = useState(true);
   const [focusedRefusal, setFocusedRefusal] = useState(null);
+  const [selectedOrgType, setSelectedOrgType] = useState(null);
+  const [focusedHospitalId, setFocusedHospitalId] = useState(null);
   
   const [filters, setFilters] = useState({
     district: "Все районы",
-    mapMode: "geo", // Режим геоанализа по умолчанию
-    geoAccessMode: "current", // "current" или "planned"
-    activeGeoLayers: ["zones", "grid"], // Слои: zones, grid, refusals, profiles
+    mapMode: "geo",
+    geoAccessMode: "current",
+    activeGeoLayers: ["zones", "grid"],
     selectedTechConditions: [],
     searchQuery: ""
   });
@@ -39,11 +42,18 @@ export default function GeoAnalysisPageHospitals() {
           HospitalService.getBedProfilesSummary()
         ]);
 
+        const filteredPlanned = {
+          ...objs,
+          features: objs.features.filter(f => 
+            ["Больница", "Многопрофильная Больница"].includes(f.properties.obj_type)
+          )
+        };
+
         setData({
           hospitals: hosp.results,
-          refusals: ref.results || [],
+          refusals: ref,
           plannedZones: zones,
-          plannedObjects: objs,
+          plannedObjects: filteredPlanned,
           gridCells: grid,
           profilesSummary: prof
         });
@@ -56,10 +66,11 @@ export default function GeoAnalysisPageHospitals() {
     loadAllData();
   }, []);
 
-  // Фильтрация стационаров для отображения на карте
   const filteredHospitals = useMemo(() => {
     return data.hospitals.filter(h => {
-      if (filters.district !== "Все районы" && h.district !== filters.district) return false;
+      if (filters.district && filters.district !== "Все районы") {
+        if (!h.district.includes(filters.district)) return false;
+      }
       if (filters.searchQuery && !h.name.toLowerCase().includes(filters.searchQuery.toLowerCase())) return false;
       return true;
     });
@@ -71,15 +82,17 @@ export default function GeoAnalysisPageHospitals() {
     <div className="relative h-full w-full overflow-hidden">
       <HospitalMapView 
         facilities={filteredHospitals}
-        mapMode={filters.mapMode}
-        // Передаем дополнительные гео-данные
+        mapMode="geo"
         gridCells={data.gridCells}
         plannedZones={data.plannedZones}
         plannedObjects={data.plannedObjects}
-        refusalsData={data.refusals}
+        refusalsData={data.refusals?.results || []} 
         activeGeoLayers={filters.activeGeoLayers}
         geoAccessMode={filters.geoAccessMode}
         focusedRefusal={focusedRefusal}
+        focusedHospitalId={focusedHospitalId}
+        selectedOrgTypeForGrid={selectedOrgType}
+        selectedDistrict={filters.district}
       />
 
       <div className="absolute top-4 left-4 z-10">
@@ -90,16 +103,27 @@ export default function GeoAnalysisPageHospitals() {
         />
       </div>
 
-      {/* Модальное окно отказов (если слой активен) */}
+      {filters.activeGeoLayers.includes("orgTypeGrid") && (
+        <OrgTypeGridPanel 
+          onClose={() => setFilters(prev => ({
+            ...prev, 
+            activeGeoLayers: prev.activeGeoLayers.filter(l => l !== 'orgTypeGrid')
+          }))}
+          hospitals={data.hospitals}
+          selectedType={selectedOrgType}
+          onSelectType={setSelectedOrgType}
+          onHospitalClick={(h) => setFocusedHospitalId(h.unified_id)}
+        />
+      )}
+
       {filters.activeGeoLayers.includes("refusals") && (
         <RefusalsModal 
-          data={data.refusals}
+          data={data.refusals} 
           onItemClick={(item) => setFocusedRefusal({...item, _t: Date.now()})}
           onClose={() => setFilters(f => ({...f, activeGeoLayers: f.activeGeoLayers.filter(l => l !== 'refusals')}))}
         />
       )}
 
-      {/* Модальное окно дефицита профилей */}
       {filters.activeGeoLayers.includes("profiles") && (
         <ProfilesDeficitModal 
           data={data.profilesSummary}

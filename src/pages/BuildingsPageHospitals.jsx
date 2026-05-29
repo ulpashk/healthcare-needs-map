@@ -7,6 +7,7 @@ import BuildingAnalysisModalHospitals from '../components/HospitalComponents/Bui
 
 export default function BuildingsPageHospitals() {
   const [hospitals, setHospitals] = useState([]);
+  const [seismicData, setSeismicData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [focusedHospitalId, setFocusedHospitalId] = useState(null);
@@ -15,22 +16,36 @@ export default function BuildingsPageHospitals() {
     district: "Все районы",
     searchQuery: "",
     selectedTechConditions: [],
-    mapMode: "buildings"
+    mapMode: "buildings",
+    showSeismicGrid: false
   });
 
   useEffect(() => {
-    HospitalService.getHospitals().then(data => {
-      setHospitals(data.results);
-      setLoading(false);
-    });
+    const loadData = async () => {
+      try {
+        const [hospRes, seismicRes] = await Promise.all([
+          HospitalService.getHospitals(),
+          HospitalService.getSeismicPoints()
+        ]);
+        setHospitals(hospRes.results);
+        setSeismicData(seismicRes);
+      } catch (err) {
+        console.error("Ошибка загрузки:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
   }, []);
 
   const filteredHospitals = useMemo(() => {
     return hospitals.filter(h => {
-      // Фильтр поиска
       if (filters.searchQuery && !h.name.toLowerCase().includes(filters.searchQuery.toLowerCase())) return false;
       
-      // Фильтр тех. состояния (логика из Next.js)
+      if (filters.district && filters.district !== "Все районы") {
+        if (!h.district.includes(filters.district)) return false;
+      }
+
       if (filters.selectedTechConditions.length > 0) {
         let conditionKey = "gray";
         if (h.bld_emergency) conditionKey = "dark-red";
@@ -51,8 +66,11 @@ export default function BuildingsPageHospitals() {
     <div className="relative h-full w-full overflow-hidden">
       <HospitalMapView 
         facilities={filteredHospitals}
+        selectedDistrict={filters.district}
         mapMode={filters.mapMode}
         focusedHospitalId={focusedHospitalId}
+        seismicData={seismicData}
+        showSeismicGrid={filters.showSeismicGrid}
       />
       
       <div className="absolute top-4 left-4 z-10">

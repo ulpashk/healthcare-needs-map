@@ -33,6 +33,7 @@ function App() {
               <Route path="/pmsp/geo-analysis" element={<GeoAnalysisPagePMSP/>}/>
               <Route path="/hospitals/buildings" element={<BuildingsPageHospitals/>}/>
               <Route path="/hospitals/geo-analysis" element={<GeoAnalysisPageHospitals/>}/>
+              <Route path="*" element={<Navigate to="/pmsp/buildings" replace />} />
             </Routes>
           </main>
         </div>
