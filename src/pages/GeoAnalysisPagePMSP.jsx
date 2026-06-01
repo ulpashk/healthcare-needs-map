@@ -18,6 +18,7 @@ export default function GeoAnalysisPagePMSP() {
   const [selectedAffiliations, setSelectedAffiliations] = useState(["all"]);
   const [activeScenario, setActiveScenario] = useState('current');
   const [isPlanningActive, setIsPlanningActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const mapRef = useRef();
 
   const handleReset = () => {
@@ -26,12 +27,15 @@ export default function GeoAnalysisPagePMSP() {
     setSelectedLayers(["Все слои"]);
     setSelectedAffiliations(["all"]);
     setActiveScenario('current');
+    setSearchQuery("");
   };
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
       <div className="absolute top-6 left-6 z-20 w-[300px]">
         <GeoFilterPanel 
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
           selectedDistrict={selectedDistrict}
           setSelectedDistrict={setSelectedDistrict}
           selectedLayers={selectedLayers}
@@ -90,6 +94,10 @@ export default function GeoAnalysisPagePMSP() {
           setAvgPerson={setAvgPerson}
           activeScenario={activeScenario}
           isPlanningActive={isPlanningActive}
+          extraFilters={{
+            search: searchQuery,
+            techConditions: []
+          }}
         />
       </div>
 

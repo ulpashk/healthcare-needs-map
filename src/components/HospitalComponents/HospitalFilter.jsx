@@ -211,9 +211,7 @@ export default function HospitalFilter({ facilities, filters, onFiltersChange, o
           </div>
         )}
 
-        {/* Статистика (Карточки) */}
         <div className="grid grid-cols-2 gap-2 pt-2">
-          {/* Всего коек */}
           <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-50 border border-blue-100">
             <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-blue-500 shrink-0">
               <Bed className="h-3.5 w-3.5 text-white" />
@@ -226,7 +224,6 @@ export default function HospitalFilter({ facilities, filters, onFiltersChange, o
             </div>
           </div>
 
-          {/* Загруженность */}
           <div className={`flex items-center gap-2 p-2 rounded-lg border ${
             summaryData.avgOccupancy >= 70 ? "bg-orange-50 border-orange-100" : "bg-green-50 border-green-100"
           }`}>
@@ -243,7 +240,6 @@ export default function HospitalFilter({ facilities, filters, onFiltersChange, o
             </div>
           </div>
 
-          {/* Всего МО */}
           <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200">
             <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-slate-500 shrink-0">
               <Building2 className="h-3.5 w-3.5 text-white" />
@@ -254,7 +250,6 @@ export default function HospitalFilter({ facilities, filters, onFiltersChange, o
             </div>
           </div>
 
-          {/* Поступило */}
           <div className="flex items-center gap-2 p-2 rounded-lg bg-indigo-50 border border-indigo-100">
             <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-500 shrink-0">
               <Users className="h-3.5 w-3.5 text-white" />

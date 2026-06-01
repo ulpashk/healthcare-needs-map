@@ -25,7 +25,7 @@ export default function PlanningToolList({ data, onZoomTo }) {
   }, [data, filter]);
 
   return (
-    <div className="bg-gray-50 border-b flex flex-col font-sans">
+    <div className="bg-gray-50 border-b border-gray-200 flex flex-col font-sans">
       
       <div className="bg-[#E8EAF6] p-3 border-b border-indigo-100 text-left text-[10px] font-semibold">
         <div className="text-[#1A237E] leading-tight">
@@ -42,7 +42,7 @@ export default function PlanningToolList({ data, onZoomTo }) {
         </div> */}
       </div>
 
-      <div className="flex justify-between gap-1 p-2 bg-white border-b overflow-x-auto no-scrollbar">
+      <div className="flex justify-between gap-1 p-2 bg-white border-b border-gray-200 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setFilter('all')}
           className={`px-4 py-1 rounded-lg text-[10px] font-bold transition-all ${

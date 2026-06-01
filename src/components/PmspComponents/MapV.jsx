@@ -18,6 +18,7 @@ const MapView = forwardRef(({
   selectedLayers = ["Все слои"],
   selectedVisits = ["Все посещения"],
   selectedAffiliations = ["all"], 
+  extraFilters = { search: "", techConditions: [] }, 
   setTotalCount = () => {},
   setTotalPopulation = () => {},
   setAvgVisit = () => {},
@@ -157,7 +158,8 @@ const MapView = forwardRef(({
         visits: selectedVisits,
         layers: selectedLayers,
         affiliations: selectedAffiliations, 
-        activeScenario: activeScenario
+        activeScenario: activeScenario, 
+        extraFilters: extraFilters 
       });
 
       if (!data || !data.city) return;
@@ -219,7 +221,7 @@ const MapView = forwardRef(({
       map.getCanvas().style.cursor = '';
     };
 
-  }, [selectedDistrict, selectedVisits, selectedLayers, selectedAffiliations, isPlanningActive, mode, geoMode, filterData, isReady, rawCacheData, activeScenario]);
+  }, [selectedDistrict, selectedVisits, selectedLayers, selectedAffiliations, extraFilters, isPlanningActive, mode, geoMode, filterData, isReady, rawCacheData, activeScenario]);
 
   return (
     <div className="relative w-full h-full">

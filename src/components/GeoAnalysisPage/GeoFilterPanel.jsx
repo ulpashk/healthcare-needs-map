@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ChartLine, ChevronDown, RotateCcw, Bus, Train } from 'lucide-react';
+import { ChartLine, ChevronDown, RotateCcw, Bus, Train, Search } from 'lucide-react';
 import PlanningToolList from './PlanningToolList';
 import Indicators from '../PmspComponents/MapFilter/Indicators';
 
 export default function GeoFilterPanel({
+  searchQuery, setSearchQuery,
   selectedDistrict, setSelectedDistrict,
   selectedLayers, setSelectedLayers,
   selectedVisits, setSelectedVisits,
@@ -122,8 +123,7 @@ export default function GeoFilterPanel({
   );
 
   return (
-    <div className="flex flex-col max-h-[calc(100vh-100px)] bg-white/95 backdrop-blur-sm rounded-xl border shadow-lg overflow-hidden scrollbar-hide text-xs">
-      
+    <div className="flex flex-col max-h-[calc(100vh-100px)] bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg overflow-hidden scrollbar-hide text-xs">
       <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm ">
           <div className="flex items-center justify-between px-3 py-2 pt-3 font-bold text-gray-800">
             <span className="text-sm">Фильтры</span>
@@ -145,12 +145,21 @@ export default function GeoFilterPanel({
 
           <div className="p-2 md:px-3">
             <div className="flex flex-col gap-1">
+              <div className="relative mb-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Поиск по названию..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded-md outline-none focus:ring-2 ring-blue-100"
+                />
+              </div>
               
-              {/* District Filter */}
               <div className="relative">
                 <div
                   onClick={() => toggleDropdown('district')}
-                  className="flex items-center justify-between px-2 py-1.5 border rounded-md bg-white text-[11px] cursor-pointer hover:border-blue-300"
+                  className="flex items-center justify-between px-2 py-1.5 border border-gray-200 rounded-md bg-white text-[11px] cursor-pointer hover:border-blue-300"
                 >
                   <span className="truncate pr-1">
                     {selectedDistrict.join(", ")}
@@ -160,7 +169,7 @@ export default function GeoFilterPanel({
                   </svg>
                 </div>
                 {activeDropdown === 'district' && (
-                  <div className="absolute top-full left-0 right-0 mt-0.5 bg-white border rounded-md shadow-xl z-50 max-h-40 overflow-y-auto text-[10px]">
+                  <div className="absolute top-full left-0 right-0 mt-0.5 bg-white border border-gray-200 rounded-md z-50 max-h-40 overflow-y-auto text-[10px]">
                     {allDistricts.map((district) => (
                       <label key={district} className="flex items-center px-2 py-1 hover:bg-blue-50 cursor-pointer">
                         <input type="checkbox" checked={selectedDistrict.includes(district)} onChange={() => handleDistrictChange(district)} className="w-3 h-3 mr-2" />
@@ -171,11 +180,10 @@ export default function GeoFilterPanel({
                 )}
               </div>
 
-              {/* Visit Filter */}
               <div className="relative">
                 <div
                   onClick={() => toggleDropdown('visit')}
-                  className="flex items-center justify-between px-2 py-1.5 border rounded-md bg-white text-[11px] cursor-pointer hover:border-blue-300"
+                  className="flex items-center justify-between px-2 py-1.5 border border-gray-200 rounded-md bg-white text-[11px] cursor-pointer hover:border-blue-300"
                 >
                   <span className="truncate pr-1">
                     {selectedVisits.join(", ") || "Выберите посещение"}
@@ -185,7 +193,7 @@ export default function GeoFilterPanel({
                   </svg>
                 </div>
                 {activeDropdown === 'visit' && (
-                  <div className="absolute top-full left-0 right-0 mt-0.5 bg-white border rounded-md shadow-xl z-50 max-h-40 overflow-y-auto text-[10px]">
+                  <div className="absolute top-full left-0 right-0 mt-0.5 bg-white border border-gray-200 rounded-md z-50 max-h-40 overflow-y-auto text-[10px]">
                     {allVisits.map((visit) => (
                       <label key={visit} className="flex items-center px-2 py-1 hover:bg-blue-50 cursor-pointer">
                         <input type="checkbox" checked={selectedVisits.includes(visit)} onChange={() => handleVisitChange(visit)} className="w-3 h-3 mr-2" />
@@ -196,11 +204,10 @@ export default function GeoFilterPanel({
                 )}
               </div>
 
-              {/* Layer Filter */}
               <div className="relative">
                 <div
                   onClick={() => toggleDropdown('layer')}
-                  className="flex items-center justify-between px-2 py-1.5 border rounded-md bg-white text-[11px] cursor-pointer hover:border-blue-300"
+                  className="flex items-center justify-between px-2 py-1.5 border border-gray-200 rounded-md bg-white text-[11px] cursor-pointer hover:border-blue-300"
                 >
                   <span className="truncate pr-1">
                     {selectedLayers.join(", ")}
@@ -210,7 +217,7 @@ export default function GeoFilterPanel({
                   </svg>
                 </div>
                 {activeDropdown === 'layer' && (
-                  <div className="absolute top-full left-0 right-0 mt-0.5 bg-white border rounded-md shadow-xl z-50 max-h-40 overflow-y-auto text-[10px]">
+                  <div className="absolute top-full left-0 right-0 mt-0.5 bg-white border border-gray-200 rounded-md shadow-xl z-50 max-h-40 overflow-y-auto text-[10px]">
                     {allLayers.map((layer) => (
                       <label key={layer} className="flex items-center px-2 py-1 hover:bg-blue-50 cursor-pointer">
                         <input type="checkbox" checked={selectedLayers.includes(layer)} onChange={() => handleLayerChange(layer)} className="w-3 h-3 mr-2" />
@@ -221,11 +228,10 @@ export default function GeoFilterPanel({
                 )}
               </div>
 
-              {/* Affiliation Filter */}
               <div className="relative">
                 <div
                   onClick={() => toggleDropdown('affiliation')}
-                  className="flex items-center justify-between px-2 py-1.5 border rounded-md bg-white text-[11px] cursor-pointer hover:border-blue-300"
+                  className="flex items-center justify-between px-2 py-1.5 border border-gray-200 rounded-md bg-white text-[11px] cursor-pointer hover:border-blue-300"
                 >
                   <span className="truncate pr-1">
                     {selectedAffiliations.includes("all") 
@@ -241,7 +247,7 @@ export default function GeoFilterPanel({
                   </svg>
                 </div>
                 {activeDropdown === 'affiliation' && (
-                  <div className="absolute top-full left-0 right-0 mt-0.5 bg-white border rounded-md shadow-xl z-50 max-h-40 overflow-y-auto text-[10px]">
+                  <div className="absolute top-full left-0 right-0 mt-0.5 bg-white border border-gray-200 rounded-md shadow-xl z-50 max-h-40 overflow-y-auto text-[10px]">
                     {allAffiliations.map((affiliation) => (
                       <label key={affiliation.key} className="flex items-center px-2 py-1 hover:bg-blue-50 cursor-pointer">
                         <input 
@@ -277,7 +283,7 @@ export default function GeoFilterPanel({
             </div>
           }
 
-          <div className="p-3 border-t bg-gray-50/30">
+          <div className="p-3 border-t border-gray-200 bg-gray-50/30">
             <h3 className="font-bold text-gray-400 text-left uppercase text-[10px] mb-2">Сценарий анализа</h3>
             <div className="flex gap-1">
               {[
@@ -300,24 +306,7 @@ export default function GeoFilterPanel({
             </div>
           </div>
 
-          {/* 3. ТРАНСПОРТ (Чекбокс) */}
-          {/* <div className="px-4 py-2 space-y-2">
-            <label className="flex items-center gap-2 cursor-pointer group">
-              <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4" />
-              <span className="text-[11px] text-gray-700 group-hover:text-black transition-colors">Маршруты ОТ (автобус / троллейбус)</span>
-            </label>
-            <div className="flex items-center gap-4 ml-6">
-              <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
-                <div className="w-6 h-1 rounded bg-blue-500"></div> <span>Автобус</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
-                <div className="w-6 h-1 rounded bg-purple-600"></div> <span>Троллейбус</span>
-              </div>
-            </div>
-          </div> */}
-
-          {/* 4. ИНСТРУМЕНТ ПЛАНИРОВАНИЯ (Аккордеон) */}
-          <div className="mt-2 border-t">
+          <div className="mt-2 border-t border-gray-200">
             <button 
               onClick={() => setIsPlanningActive(!isPlanningActive)}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 flex items-center justify-between transition-colors shadow-inner"
@@ -338,7 +327,7 @@ export default function GeoFilterPanel({
           </div>
         </div>
 
-        <div className="p-2 bg-gray-50 border-t shrink-0">
+        <div className="p-2 bg-gray-50 border-t border-gray-200 shrink-0">
           <button 
             onClick={onReset}
             className="w-full py-2 flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-lg text-gray-500 font-bold hover:bg-gray-100 active:scale-95 transition-all shadow-sm"

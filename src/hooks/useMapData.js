@@ -88,8 +88,11 @@ export const useMapData = (mode) => {
       activeScenario = 'current',
       visits = ["Все посещения"], 
       layers = ["Все слои"], 
-      affiliations = ["all"]
+      affiliations = ["all"],
+      extraFilters = {}
     } = filters;
+
+    const { search = "", techConditions = [] } = extraFilters;
 
     const currentFacs = cache.pmsp.results.map(f => ({
       lat: f.lat, lng: f.lng, name: f.name, own_type: f.ownership, isPlanned: false
@@ -249,7 +252,10 @@ export const useMapData = (mode) => {
       const matchDist = checkDistrict(item.district);
       const matchVisit = visits.includes("Все посещения") || visits.includes(getVisitCategory(item.cap_load));
       const matchAffiliation = affiliations.includes("all") || affiliations.includes(item.own_type);      
-      return matchDist && matchVisit && matchAffiliation;
+      const matchSearch = !search || item.name.toLowerCase().includes(search.toLowerCase());
+      const itemTechStatus = item.bld_main_priority?.toLowerCase() || "нет данных";
+      const matchTech = techConditions.length === 0 || techConditions.includes(itemTechStatus);
+      return matchDist && matchVisit && matchAffiliation && matchSearch && matchTech;
     });
 
     const filteredPmspFeatures = filteredPmspRaw.map(i => ({
