@@ -31,7 +31,11 @@ export default function HospitalFilter({ facilities, filters, onFiltersChange, o
   const summaryData = useMemo(() => {
     const filtered = facilities.filter((f) => {
       if (filters.searchQuery && !f.name.toLowerCase().includes(filters.searchQuery.toLowerCase())) return false;
-      if (filters.district !== "Все районы" && f.district !== filters.district) return false;
+      if (filters.district && filters.district !== "Все районы") {
+        if (!f.district || !f.district.includes(filters.district)) {
+          return false;
+        }
+      }
       return true;
     });
 
@@ -175,11 +179,28 @@ export default function HospitalFilter({ facilities, filters, onFiltersChange, o
                         type="checkbox"
                         className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600"
                         checked={filters.activeGeoLayers?.includes(layer.id)}
+                        // onChange={(e) => {
+                        //   const next = e.target.checked
+                        //     ? [...filters.activeGeoLayers, layer.id]
+                        //     : filters.activeGeoLayers.filter((id) => id !== layer.id);
+                        //   onFiltersChange({ ...filters, activeGeoLayers: next });
+                        // }}
                         onChange={(e) => {
-                          const next = e.target.checked
-                            ? [...filters.activeGeoLayers, layer.id]
-                            : filters.activeGeoLayers.filter((id) => id !== layer.id);
-                          onFiltersChange({ ...filters, activeGeoLayers: next });
+                          const isChecked = e.target.checked;
+                          let nextLayers;
+
+                          if (isChecked) {
+                            nextLayers = [...filters.activeGeoLayers, layer.id];
+                            if (layer.id === "grid") {
+                              nextLayers = nextLayers.filter(id => id !== "orgTypeGrid");
+                            }
+                            if (layer.id === "orgTypeGrid") {
+                              nextLayers = nextLayers.filter(id => id !== "grid");
+                            }
+                          } else {
+                            nextLayers = filters.activeGeoLayers.filter((id) => id !== layer.id);
+                          }
+                          onFiltersChange({ ...filters, activeGeoLayers: nextLayers });
                         }}
                       />
                       <span className="text-xs text-gray-700">{layer.label}</span>

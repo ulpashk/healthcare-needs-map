@@ -5,6 +5,7 @@ import { HospitalService } from '../services/hospitalApiService';
 import RefusalsModal from '../components/HospitalComponents/Modals/RefusalsModal';
 import ProfilesDeficitModal from '../components/HospitalComponents/Modals/ProfilesDeficitModal';
 import OrgTypeGridPanel from '../components/HospitalComponents/OrgTypeGridPanel';
+import MapLegendHospitals from '../components/HospitalComponents/MapLegendHospitals';
 
 export default function GeoAnalysisPageHospitals() {
   const [data, setData] = useState({
@@ -102,6 +103,8 @@ export default function GeoAnalysisPageHospitals() {
           onFiltersChange={setFilters}
         />
       </div>
+
+      <MapLegendHospitals mapMode={filters.mapMode} />
 
       {filters.activeGeoLayers.includes("orgTypeGrid") && (
         <OrgTypeGridPanel 

@@ -32,8 +32,8 @@ export default function MapLegend({ mapMode }) {
         <span className="text-xs font-bold tracking-wide">{title}</span>
       </div>
 
-      <div className="p-4 space-y-2.5">
-        <div className="text-[11px] text-gray-500 font-medium mb-1">
+      <div className="p-4 space-y-2">
+        <div className="text-[11px] text-gray-500 font-medium mb-1 text-left">
           Цвет — {mapMode === "buildings" ? "тех. состояние" : "% занятых коек"}
         </div>
         
@@ -54,7 +54,7 @@ export default function MapLegend({ mapMode }) {
             <Ruler className="h-3.5 w-3.5 rotate-45" />
             <span className="text-[10px] italic">Размер = число коек</span>
           </div>
-          <div className="text-[10px] text-gray-400 pl-5">
+          <div className="text-[10px] text-gray-400 pl-5 text-left">
             Обводка — летальность {'>'}2%
           </div>
         </div>

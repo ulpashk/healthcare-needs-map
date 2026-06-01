@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import maplibregl from 'maplibre-gl';
 import { useMapInitialization } from '../../hooks/useMapInitialization';
 import { HospitalService } from '../../services/hospitalApiService';
 import { MapControls } from '../general/MapControls';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { getMoSettings } from '../../constants/mo-config';
 
 const shortenName = (name) => {
   if (!name) return "";
@@ -30,9 +31,9 @@ function computeGridData(gridGeoJSON, targets) {
       const d = getDistanceMeters(coords[1], coords[0], p.lat, p.lng);
       if (d < minD) minD = d;
     }
-    let color = "#C62828"; // Красный (>5км)
-    if (minD <= 1200) color = "#2E7D32";      // Зеленый (пешком)
-    else if (minD <= 5000) color = "#1565C0"; // Синий (транспорт)
+    let color = "#C62828";
+    if (minD <= 1200) color = "#2E7D32";
+    else if (minD <= 5000) color = "#1565C0";
     return { ...f, properties: { ...f.properties, dynamicColor: color } };
   });
   return { ...gridGeoJSON, features };
@@ -99,15 +100,15 @@ function computeOrgTypeGrid(gridGeoJSON, targets, nearThreshold, farThreshold) {
       if (d < minD) minD = d;
     }
 
-    let color = "#E53935"; 
-    if (minD <= nearThreshold) color = "#43A047"; 
-    else if (minD <= farThreshold) color = "#FB8C00"; 
+    let color = "#E53935";
+    if (minD <= nearThreshold) color = "#43A047";
+    else if (minD <= farThreshold) color = "#FB8C00";
 
     return {
       ...f,
       properties: { 
         ...f.properties, 
-        typeGridColor: color, 
+        typeGridColor: color,
         dist: minD 
       }
     };
@@ -131,6 +132,7 @@ export default function HospitalMapView({
   recommendations = [],
   geoAccessMode = "current", 
   focusedRefusal = null,
+  selectedOrgTypeForGrid = null,
 }) {
   const mapContainer = useRef(null);
   const { mapRef, isLoading, zoomIn, zoomOut, resetView } = useMapInitialization(mapContainer);
@@ -292,6 +294,10 @@ export default function HospitalMapView({
         }))
       };
 
+      const filterLogic = (activeGeoLayers.includes("orgTypeGrid") && selectedOrgTypeForGrid)
+        ? ["==", ["get", "org_type"], selectedOrgTypeForGrid]
+        : undefined;
+
       const buildingColorLogic = [
         "case",
         ["to-boolean", ["coalesce", ["get", "bld_emergency"], false]], "#7B0000",
@@ -325,6 +331,7 @@ export default function HospitalMapView({
           id: layerId,
           type: "circle",
           source: sourceId,
+          filter: filterLogic || ["all"],
           paint: {
             "circle-radius": [
               "max", 5, 
@@ -365,52 +372,102 @@ export default function HospitalMapView({
         map.on("mouseenter", layerId, () => map.getCanvas().style.cursor = 'pointer');
         map.on("mouseleave", layerId, () => map.getCanvas().style.cursor = '');
       } else {
-        map.getSource(sourceId).setData(geojsonData);
-        map.setPaintProperty(layerId, "circle-color", currentColorLogic);   
+        if (map.getLayer(layerId)) {
+          map.getSource(sourceId).setData(geojsonData);
+          map.setPaintProperty(layerId, "circle-color", currentColorLogic);
+          map.setFilter(layerId, filterLogic || ["all"]);
+        }
       }
     };
 
     if (map.isStyleLoaded()) updateMap();
     else map.once('load', updateMap);
 
-  }, [facilities, mapMode, isLoading]);
+  }, [facilities, mapMode, isLoading, selectedOrgTypeForGrid, activeGeoLayers]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || isLoading) return;
+    if (!map || isLoading || !gridCells) return;
 
     const updateGeoLayers = () => {
-      if (!map.isStyleLoaded()) return;
+      if (!map.isStyleLoaded() || !map.getLayer("hospitals-layer")) return;
 
-      if (activeGeoLayers.includes("grid") && gridCells) {
-        const points = facilities.map(f => ({ lat: f.lat, lng: f.lng }));
+      const isTypeActive = activeGeoLayers.includes("orgTypeGrid") && selectedOrgTypeForGrid;
+      const isGeneralGridActive = activeGeoLayers.includes("grid");
+      const settings = selectedOrgTypeForGrid ? getMoSettings(selectedOrgTypeForGrid) : null;
+
+      const sourceId = "grid-source";
+      const layerId = "grid-layer";
+
+      let gridData = null;
+      let shouldShowGrid = false;
+
+      if (isGeneralGridActive) {
+        shouldShowGrid = true;
+        
+        let points = facilities.map(f => ({ lat: f.lat, lng: f.lng }));
+
         if (geoAccessMode === "planned" && plannedObjects?.features) {
           plannedObjects.features.forEach(f => {
-            points.push({ 
-              lat: f.geometry.coordinates[1], 
-              lng: f.geometry.coordinates[0] 
-            });
+            if (f.geometry && f.geometry.coordinates) {
+              points.push({ 
+                lat: f.geometry.coordinates[1], 
+                lng: f.geometry.coordinates[0] 
+              });
+            }
           });
         }
 
-        const gridData = computeGridData(gridCells, points);
-        if (!map.getSource("grid-source")) {
-          map.addSource("grid-source", { type: "geojson", data: gridData });
+        gridData = computeGridData(gridCells, points);
+      } 
+      else if (isTypeActive && settings?.mode === "territorial") {
+        shouldShowGrid = true;
+        const targets = facilities
+          .filter(f => f.org_type === selectedOrgTypeForGrid)
+          .map(f => ({ lat: f.lat, lng: f.lng }));
+        
+        if (targets.length > 0) {
+          gridData = computeOrgTypeGrid(gridCells, targets, settings.near, settings.far);
+        }
+      }
+
+      if (shouldShowGrid && gridData) {
+        if (!map.getSource(sourceId)) {
+          map.addSource(sourceId, { type: "geojson", data: gridData });
           map.addLayer({
-            id: "grid-layer",
+            id: layerId,
             type: "fill",
-            source: "grid-source",
+            source: sourceId,
             paint: {
-              "fill-color": ["get", "dynamicColor"],
+              "fill-color": ["coalesce", ["get", "typeGridColor"], ["get", "dynamicColor"], "#ccc"],
               "fill-opacity": 0.3
             }
           }, "hospitals-layer");
         } else {
-          map.getSource("grid-source").setData(gridData);
-          map.setLayoutProperty("grid-layer", "visibility", "visible");
+          map.getSource(sourceId).setData(gridData);
+          map.setLayoutProperty(layerId, 'visibility', 'visible');
         }
-      } else if (map.getLayer("grid-layer")) {
-        map.setLayoutProperty("grid-layer", "visibility", "none");
+      } else {
+        if (map.getLayer(layerId)) map.setLayoutProperty(layerId, 'visibility', 'none');
+      }
+
+      if (isTypeActive && settings?.mode === "zonal") {
+        const districtsWithMO = Array.from(new Set(
+          facilities
+            .filter(f => f.org_type === selectedOrgTypeForGrid)
+            .map(f => f.district.replace(" район", "").trim())
+        ));
+        if (map.getLayer("districts-fill")) {
+          map.setPaintProperty("districts-fill", "fill-color", [
+            "case", ["in", ["get", "name_ru"], ["literal", districtsWithMO]], "#43A047", "#E53935"
+          ]);
+          map.setPaintProperty("districts-fill", "fill-opacity", 0.4);
+        }
+      } else if (!shouldShowGrid) {
+        if (map.getLayer("districts-fill")) {
+          map.setPaintProperty("districts-fill", "fill-color", "#3772ff");
+          map.setPaintProperty("districts-fill", "fill-opacity", 0.05);
+        }
       }
 
       const showPlannedDots = geoAccessMode === "planned" && plannedObjects;
@@ -483,13 +540,6 @@ export default function HospitalMapView({
         map.setLayoutProperty("zones-line-layer", "visibility", "none");
       }
 
-      if (map.getLayer("grid-layer") && map.getLayer("zones-layer")) {
-        map.moveLayer("grid-layer", "zones-layer");
-      }
-      if (map.getLayer("zones-layer") && map.getLayer("hospitals-layer")) {
-        map.moveLayer("zones-layer", "hospitals-layer");
-      }
-
       if (activeGeoLayers.includes("refusals") && refusalsData.length > 0) {
         const refusalGeojson = {
           type: "FeatureCollection",
@@ -545,13 +595,22 @@ export default function HospitalMapView({
       } else if (map.getLayer("refusals-layer")) {
         map.setLayoutProperty("refusals-layer", "visibility", "none");
       }
+
+      if (map.getLayer("grid-layer") && map.getLayer("zones-layer")) {
+        map.moveLayer("grid-layer", "zones-layer");
+      }
+      if (map.getLayer("zones-layer") && map.getLayer("hospitals-layer")) {
+        map.moveLayer("zones-layer", "hospitals-layer");
+      }
     };
 
     if (map.isStyleLoaded()) updateGeoLayers();
     else map.once('idle', updateGeoLayers);
 
-  }, [activeGeoLayers, gridCells, plannedZones, refusalsData, plannedObjects, facilities, geoAccessMode, isLoading]);
-
+    const timer = setTimeout(updateGeoLayers, 50); 
+    return () => clearTimeout(timer);
+  }, [activeGeoLayers, gridCells, plannedZones, refusalsData, plannedObjects, facilities, selectedOrgTypeForGrid, geoAccessMode, isLoading]);
+  
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -663,88 +722,6 @@ export default function HospitalMapView({
     activePopupRef.current = popup;
 
   }, [focusedRefusal]);
-
-  // Эффект для слоя "Грид по типу МО"
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || isLoading || !gridCells) return;
-
-    const sourceId = "org-type-grid-source";
-    const layerId = "org-type-grid-layer";
-
-    const updateTypeGrid = () => {
-      if (!map.isStyleLoaded()) return;
-
-      const isActive = activeGeoLayers.includes("orgTypeGrid") && selectedOrgTypeForGrid;
-
-      // Функция сброса стилей районов (если был Zonal режим)
-      const resetDistricts = () => {
-        if (map.getLayer("districts-fill")) {
-          map.setPaintProperty("districts-fill", "fill-color", "#3772ff");
-          map.setPaintProperty("districts-fill", "fill-opacity", 0.05);
-        }
-      };
-
-      if (!isActive) {
-        if (map.getLayer(layerId)) map.setLayoutProperty(layerId, 'visibility', 'none');
-        resetDistricts();
-        return;
-      }
-
-      const settings = getMoSettings(selectedOrgTypeForGrid);
-      
-      // РЕЖИМ 1: Зональный (красим районы целиком)
-      if (settings.mode === "zonal") {
-        if (map.getLayer(layerId)) map.setLayoutProperty(layerId, 'visibility', 'none');
-        
-        const districtsWithMO = Array.from(new Set(
-          facilities
-            .filter(f => f.org_type === selectedOrgTypeForGrid)
-            .map(f => f.district.replace(" район", "").trim())
-        ));
-
-        if (map.getLayer("districts-fill")) {
-          map.setPaintProperty("districts-fill", "fill-color", [
-            "case",
-            ["in", ["get", "name_ru"], ["literal", districtsWithMO]], "#43A047",
-            "#E53935"
-          ]);
-          map.setPaintProperty("districts-fill", "fill-opacity", 0.4);
-        }
-        return;
-      }
-
-      // РЕЖИМ 2: Территориальный (красим сетку ячеек)
-      if (settings.mode === "territorial") {
-        resetDistricts();
-        const targets = facilities
-          .filter(f => f.org_type === selectedOrgTypeForGrid)
-          .map(f => ({ lat: f.lat, lng: f.lng }));
-
-        if (targets.length > 0) {
-          const calculatedData = computeOrgTypeGrid(gridCells, targets, settings.near, settings.far);
-
-          if (map.getSource(sourceId)) {
-            map.getSource(sourceId).setData(calculatedData);
-            map.setLayoutProperty(layerId, 'visibility', 'visible');
-          } else {
-            map.addSource(sourceId, { type: "geojson", data: calculatedData });
-            map.addLayer({
-              id: layerId,
-              type: "fill",
-              source: sourceId,
-              paint: {
-                "fill-color": ["get", "typeGridColor"],
-                "fill-opacity": 0.35
-              }
-            }, "hospitals-layer");
-          }
-        }
-      }
-    };
-
-    updateTypeGrid();
-  }, [selectedOrgTypeForGrid, activeGeoLayers, gridCells, facilities, isLoading]);
 
   return (
     <div className="relative w-full h-full">
