@@ -4,6 +4,7 @@ import { useState, useRef } from "react"
 import MapView from "../components/PmspComponents/MapV"
 import BuildingsFilterPanel from "../components/BuildingsPage/BuildingsFilterPanel"
 import BuildingRiskPanel from "../components/BuildingsPage/Modal/BuildingRiskPanel"
+import BuildingAgeModal from "../components/PmspComponents/Modal/BuildingAgeModal"
 
 export default function BuildingsPagePMSP() {
   const [mapData, setMapData] = useState(null)
@@ -14,6 +15,7 @@ export default function BuildingsPagePMSP() {
   const [selectedAffiliations, setSelectedAffiliations] = useState(["all"]);
   const [selectedTechConditions, setSelectedTechConditions] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeModal, setActiveModal] = useState(null);
 
   const [stats, setStats] = useState({ count: 0, pop: 0, visit: 0, person: 0 });
 
@@ -23,11 +25,12 @@ export default function BuildingsPagePMSP() {
     setSelectedAffiliations(["all"]);
     setSelectedTechConditions([]);
     setSearchQuery("");
+    setActiveModal(null);
   };
 
   return (
     <div className="relative h-full w-full overflow-hidden">
-      <div className="absolute top-6 left-6 z-20 w-[300px]">
+      <div className="absolute top-[20px] left-4 z-20 w-[220px] md:w-[280px]">
         <BuildingsFilterPanel 
           selectedDistrict={selectedDistrict} setSelectedDistrict={setSelectedDistrict}
           selectedLayers={selectedLayers} setSelectedLayers={setSelectedLayers}
@@ -37,7 +40,15 @@ export default function BuildingsPagePMSP() {
           totalCount={stats.count} totalPopulation={stats.pop}
           avgVisit={stats.visit} avgPerson={stats.person}
           onReset={handleReset}
+          setActiveModal={setActiveModal}
+          activeModal={activeModal}
         />
+
+        <div className="absolute left-[102%] top-0"> 
+          {activeModal === 'age' && (
+            <BuildingAgeModal onClose={() => setActiveModal(null)} />
+          )}
+        </div>
       </div>
 
       <div className="h-full w-full">

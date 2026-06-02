@@ -461,8 +461,11 @@ export const MapLayersManager = {
               Корпус МО (зданий: ${d.bld_count || 1})
             </div>
 
-            <div style="margin-bottom:12px; border-top:1px solid #eee; padding-top:6px;">
-              ${MapLayersManager._getBldBadge(d.bld_main_priority || 'норма')}
+            <div style="font-size:11px; color:#666; padding:6px; background:#f5f5f5; border-radius:6px;">
+              🏗 Гл. здание — износ: <b>${d.bld_main_wear || '-'}%</b> 
+              <span style="background:${d.bld_main_priority === 'норма' ? '#2E7D32' : '#C62828'}; color:white; padding:1px 6px; border-radius:10px; font-size:9px; text-transform:uppercase; margin-left:5px;">
+                ${d.bld_main_priority}
+              </span>
             </div>
 
             <table style="width:100%; font-size:12px; border-collapse:collapse;">

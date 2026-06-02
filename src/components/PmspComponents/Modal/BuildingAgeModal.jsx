@@ -54,7 +54,7 @@ export default function BuildingAgeModal({ onClose }) {
                     </div>
                 ) : (
                     <table className="w-full text-[11px] md:text-xs border-collapse">
-                        <thead className="bg-[#E8EAF6] text-[#3F51B5] font-bold border-b sticky top-0 z-10">
+                        <thead className="bg-[#E8EAF6] text-[#3F51B5] font-bold border-b border-gray-200 sticky top-0 z-10">
                             <tr>
                                 <th className="p-2 text-left">Район</th>
                                 <th className="p-2 text-center">Всего зд.</th>
@@ -69,7 +69,7 @@ export default function BuildingAgeModal({ onClose }) {
                             {data.map((r, i) => {
                                 const pctOld = r.total ? Math.round((r.pre1970 / r.total) * 100) : 0;
                                 return (
-                                    <tr key={i} className={`border-b hover:bg-gray-50 transition-colors ${pctOld > 30 ? 'bg-red-50/30' : ''}`}>
+                                    <tr key={i} className={`border-b border-gray-200 hover:bg-gray-50 transition-colors ${pctOld > 30 ? 'bg-red-50/30' : ''}`}>
                                         <td className="p-2 font-bold text-gray-800">{r.district}</td>
                                         <td className="p-2 text-center font-semibold text-gray-600">{r.total}</td>
                                         <td className="p-2 text-center text-red-700 font-bold">
@@ -92,7 +92,7 @@ export default function BuildingAgeModal({ onClose }) {
                 )}
             </div>
             
-            <div className="p-2 bg-gray-50 text-[10px] text-gray-500 border-t flex justify-between items-center px-4">
+            <div className="p-2 bg-gray-50 text-[10px] text-gray-500 border-t border-gray-200 flex justify-between items-center px-4">
                 <span className="italic">* «50+ лет» — здания, построенные до 1970 года.</span>
                 <span className="font-medium">Источник: База данных ГИС МО</span>
             </div>
