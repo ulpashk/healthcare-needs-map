@@ -3,7 +3,7 @@
 import { useState, useRef } from "react"
 import MapView from "../components/PmspComponents/MapV"
 import BuildingsFilterPanel from "../components/BuildingsPage/BuildingsFilterPanel"
-import BuildingRiskPanel from "../components/BuildingsPage/Modal/BuildingRiskPanel"
+import BuildingRiskPanel from "../components/PmspComponents/Modal/BuildingRiskPanel"
 import BuildingAgeModal from "../components/PmspComponents/Modal/BuildingAgeModal"
 
 export default function BuildingsPagePMSP() {
@@ -43,10 +43,15 @@ export default function BuildingsPagePMSP() {
           setActiveModal={setActiveModal}
           activeModal={activeModal}
         />
-
         <div className="absolute left-[102%] top-0"> 
           {activeModal === 'age' && (
             <BuildingAgeModal onClose={() => setActiveModal(null)} />
+          )}
+          {activeModal === 'hidden' && (
+            <BuildingRiskPanel 
+              onClose={() => setActiveModal(null)} 
+              onZoomTo={(item) => mapRef.current?.zoomToLocation(item)}
+            />
           )}
         </div>
       </div>

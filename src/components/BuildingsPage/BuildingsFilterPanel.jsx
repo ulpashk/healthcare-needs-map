@@ -69,8 +69,7 @@ export default function BuildingsFilterPanel({
           </button>
         </div>
 
-        {/* <div className={`transition-all duration-500 overflow-y-auto scrollbar-hide ${filtersHidden ? "max-h-0" : "max-h-screen"}`}> */}
-          <div
+        <div
           className={`flex flex-col min-h-0 transition-all duration-500 ease-in-out ${
             filtersHidden ? "max-h-0 opacity-0 overflow-hidden" : "max-h-screen opacity-100"
           }`}
@@ -171,7 +170,7 @@ export default function BuildingsFilterPanel({
             avgVisit={avgVisit} 
             avgPerson={avgPerson} 
           />
-          <Analytics 
+          <Analytics
             setActiveModal={setActiveModal} 
             activeModal={activeModal} 
             onReset={onReset}
@@ -179,7 +178,7 @@ export default function BuildingsFilterPanel({
         </div>
 
         <div className="p-2 bg-gray-50 border-t border-gray-200">
-          <button onClick={onReset} className="w-full py-2 flex items-center justify-center gap-2 bg-white border rounded-lg text-gray-500 font-bold hover:bg-gray-100 transition-all shadow-sm">
+          <button onClick={onReset} className="w-full py-2 flex items-center justify-center gap-2 bg-white border rounded-lg text-gray-500 font-bold hover:bg-gray-100 transition-all shadow-sm cursor-pointer">
             <RotateCcw className="w-3.5 h-3.5" /> Сбросить
           </button>
         </div>
