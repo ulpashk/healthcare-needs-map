@@ -59,6 +59,13 @@ export default function BuildingsFilterPanel({
     }
   };
 
+  const techLabel = selectedTechConditions.length === 0 
+    ? "Все состояния" 
+    : TECH_CONDITIONS
+      .filter(t => selectedTechConditions.includes(t.id))
+      .map(t => t.label)
+      .join(", ");
+
   return (
     <div className="relative">
       <div className="flex flex-col max-h-[calc(100vh-100px)] bg-white/95 backdrop-blur-sm rounded-xl border border-gray-100 shadow-2xl overflow-hidden text-xs">
@@ -138,29 +145,48 @@ export default function BuildingsFilterPanel({
               )}
             </div>
 
-            <div className="p-2 bg-gray-50 rounded-lg border border-gray-100">
-              <h3 className="text-[11px] font-bold text-gray-400 mb-2 flex items-center gap-1">
-                Состояние зданий
-              </h3>
-              <div className="space-y-1.5">
-                {TECH_CONDITIONS.map(item => (
-                  <label key={item.id} className="flex items-center gap-2 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={selectedTechConditions.includes(item.id)}
-                      onChange={() => {
-                        const next = selectedTechConditions.includes(item.id)
-                          ? selectedTechConditions.filter(i => i !== item.id)
-                          : [...selectedTechConditions, item.id];
-                        setSelectedTechConditions(next);
-                      }}
-                      className="w-3 h-3 rounded text-blue-600"
-                    />
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="group-hover:text-blue-600 transition-colors">{item.label}</span>
-                  </label>
-                ))}
+            <div className="relative">
+              <div 
+                onClick={() => toggleDropdown('tech')} 
+                className="flex items-center justify-between px-2 py-1.5 border border-gray-200 rounded-lg bg-white cursor-pointer hover:border-blue-300 transition-colors"
+              >
+                <span className="truncate flex items-center gap-2 pr-1">
+                  {techLabel}
+                </span>
+                <ChevronDown className="w-3 h-3 shrink-0" />
               </div>
+              
+              {activeDropdown === 'tech' && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg cursor-pointer shadow-xl z-50 max-h-48 overflow-y-auto text-left">
+                  <label className="flex items-center px-2 py-1.5 hover:bg-blue-50 cursor-pointer border-b border-gray-50">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedTechConditions.length === 0} 
+                      onChange={() => setSelectedTechConditions([])} 
+                      className="mr-2 w-3 h-3" 
+                    />
+                    Все состояния
+                  </label>
+
+                  {TECH_CONDITIONS.map((item) => (
+                    <label key={item.id} className="flex items-center px-2 py-1.5 hover:bg-blue-50 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedTechConditions.includes(item.id)} 
+                        onChange={() => {
+                          const next = selectedTechConditions.includes(item.id)
+                            ? selectedTechConditions.filter(i => i !== item.id)
+                            : [...selectedTechConditions, item.id];
+                          setSelectedTechConditions(next);
+                        }} 
+                        className="mr-2 w-3 h-3" 
+                      />
+                      <div className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: item.color }} />
+                      <span className="truncate">{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
 
           </div>
@@ -176,7 +202,6 @@ export default function BuildingsFilterPanel({
             onReset={onReset}
           />
         </div>
-
         <div className="p-2 bg-gray-50 border-t border-gray-200">
           <button onClick={onReset} className="w-full py-2 flex items-center justify-center gap-2 bg-white border rounded-lg text-gray-500 font-bold hover:bg-gray-100 transition-all shadow-sm cursor-pointer">
             <RotateCcw className="w-3.5 h-3.5" /> Сбросить

@@ -55,8 +55,8 @@ export default function BuildingRiskPanel({ onClose, onZoomTo }) {
       </div>
 
       <div className="flex bg-gray-50 border-b border-gray-200 text-[11px] font-bold uppercase">
-        <button onClick={() => setActiveTab('obj')} className={`flex-1 py-2 ${activeTab === 'obj' ? 'bg-white border-b-2 border-[#37474F]' : 'text-gray-400'}`}>По объектам</button>
-        <button onClick={() => setActiveTab('dist')} className={`flex-1 py-2 ${activeTab === 'dist' ? 'bg-white border-b-2 border-[#37474F]' : 'text-gray-400'}`}>По районам</button>
+        <button onClick={() => setActiveTab('obj')} className={`flex-1 py-2 cursor-pointer ${activeTab === 'obj' ? 'bg-white border-b-2 border-[#37474F]' : 'text-gray-400'}`}>По объектам</button>
+        <button onClick={() => setActiveTab('dist')} className={`flex-1 py-2 cursor-pointer ${activeTab === 'dist' ? 'bg-white border-b-2 border-[#37474F]' : 'text-gray-400'}`}>По районам</button>
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar bg-white">
