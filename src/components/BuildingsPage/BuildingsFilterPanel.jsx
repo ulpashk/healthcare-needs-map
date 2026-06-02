@@ -64,7 +64,7 @@ export default function BuildingsFilterPanel({
       <div className="flex flex-col max-h-[calc(100vh-100px)] bg-white/95 backdrop-blur-sm rounded-xl border border-gray-100 shadow-2xl overflow-hidden text-xs">
         <div className="sticky top-0 z-20 bg-white/95 p-3 flex items-center justify-between border-b border-gray-50">
           <span className="text-sm font-bold text-gray-800">Фильтры</span>
-          <button onClick={() => setFiltersHidden(!filtersHidden)} className="text-gray-500">
+          <button onClick={() => setFiltersHidden(!filtersHidden)} className="text-gray-500 cursor-pointer">
             <ChevronDown className={`w-4 h-4 transition-transform ${filtersHidden ? "rotate-180" : ""}`} />
           </button>
         </div>
