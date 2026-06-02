@@ -73,7 +73,7 @@ export default function BuildingRiskPanel({ onClose, onZoomTo }) {
               </thead>
               <tbody>
                 {data.critical_list.map((r, i) => (
-                  <tr key={i} className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer" onClick={() => onZoomTo(r.lat, r.lng)}>
+                  <tr key={i} className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer" onClick={() => onZoomTo(r)}>
                     <td className="p-2 font-medium truncate max-w-[150px] text-left">{r.name.replace(/городская поликлиника/gi, 'ГП')}</td>
                     <td className="p-2 text-center text-gray-500">{r.bld_year_built || '—'}</td>
                     <td className="p-2 text-center">

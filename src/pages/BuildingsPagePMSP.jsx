@@ -43,17 +43,17 @@ export default function BuildingsPagePMSP() {
           setActiveModal={setActiveModal}
           activeModal={activeModal}
         />
-        <div className="absolute left-[102%] top-0"> 
-          {activeModal === 'age' && (
-            <BuildingAgeModal onClose={() => setActiveModal(null)} />
-          )}
-          {activeModal === 'hidden' && (
-            <BuildingRiskPanel 
-              onClose={() => setActiveModal(null)} 
-              onZoomTo={(item) => mapRef.current?.zoomToLocation(item)}
-            />
-          )}
-        </div>
+      </div>
+      <div className="absolute top-4 right-4 z-50"> 
+        {activeModal === 'age' && (
+          <BuildingAgeModal onClose={() => setActiveModal(null)} />
+        )}
+        {activeModal === 'hidden' && (
+          <BuildingRiskPanel 
+            onClose={() => setActiveModal(null)} 
+            onZoomTo={(item) => mapRef.current?.zoomToLocation(item)}
+          />
+        )}
       </div>
 
       <div className="h-full w-full">
