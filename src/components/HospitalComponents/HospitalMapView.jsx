@@ -325,7 +325,7 @@ export default function HospitalMapView({
           ${profilesHtml}
         </div>
 
-        <div class="ml-section-title">🏢 Все здания (${d.bld_count} корп.)</div>
+        <div class="ml-section-title">🏢 Все здания (${d.bld_count || 0} корп.)</div>
         <div class="ml-bld-wrapper">
           <table class="ml-table">
             <thead>
@@ -673,7 +673,7 @@ export default function HospitalMapView({
 
             if (activePopupRef.current) activePopupRef.current.remove();
 
-            const popup = new maplibregl.Popup({ offset: 15, closeButton: true })
+            const popup = new maplibregl.Popup({ offset: 15, closeButton: true, maxWidth: '300px' })
               .setLngLat(e.lngLat)
               .setHTML(buildRefusalPopupHTML(props))
               .addTo(map);
@@ -789,12 +789,27 @@ export default function HospitalMapView({
 
       if (activePopupRef.current) activePopupRef.current.remove();
       
-      const popup = new maplibregl.Popup({ offset: 15, closeButton: true })
+      const popup = new maplibregl.Popup({ offset: 15, closeButton: true, maxWidth: '400px' })
         .setLngLat([hospital.lng, hospital.lat])
-        .setHTML(buildHospitalPopup(hospital))
+        .setHTML('<div style="padding: 20px; text-align:center;">Загрузка детальных данных...</div>')
         .addTo(map);
         
       activePopupRef.current = popup;
+
+      const loadDetails = async () => {
+        try {
+          const detailData = await HospitalService.getHospitalDetail(focusedHospitalId);
+          if (activePopupRef.current === popup) {
+            popup.setHTML(buildHospitalPopup(detailData));
+          }
+        } catch (err) {
+          console.error("Ошибка загрузки деталей при фокусе:", err);
+          if (activePopupRef.current === popup) {
+            popup.setHTML(buildHospitalPopup(hospital));
+          }
+        }
+      };
+      loadDetails();
     }
   }, [focusedHospitalId, facilities]);
 
@@ -813,7 +828,7 @@ export default function HospitalMapView({
       duration: 1500
     });
 
-    const popup = new maplibregl.Popup({ offset: 15, closeButton: true })
+    const popup = new maplibregl.Popup({ offset: 15, closeButton: true, maxWidth: '300px' })
     .setLngLat([focusedRefusal.longitude, focusedRefusal.latitude])
     .setHTML(buildRefusalPopupHTML(focusedRefusal))
     .addTo(map);
