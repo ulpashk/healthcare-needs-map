@@ -198,16 +198,43 @@ export default function HospitalMapView({
       const style = document.createElement('style');
       style.id = styleId;
       style.textContent = `
-        .ml-card { max-width:300px; font-family: sans-serif; }
-        .ml-hd { padding: 8px 0; border-bottom: 1px solid #eee; margin-bottom: 8px; }
-        .ml-ttl { font-weight: bold; font-size: 14px; color: #111; margin: 0; }
-        .ml-meta { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
-        .ml-pill { background: #f3f4f6; border-radius: 4px; padding: 2px 6px; font-size: 10px; color: #4b5563; }
-        .ml-occ-badge { font-weight: bold; font-size: 11px; padding: 2px 8px; border-radius: 10px; display: inline-block; }
-        .ml-row { display: flex; justify-content: space-between; font-size: 11px; margin: 4px 0; }
-        .ml-bar { height: 6px; background: #eee; border-radius: 3px; overflow: hidden; margin-top: 2px; }
-        .ml-bar i { display: block; height: 100%; border-radius: 3px; }
-        .ml-section-title { font-size: 10px; font-weight: bold; color: #999; text-transform: uppercase; margin-top: 10px; }
+        .ml-card {
+          max-width: 320px; max-height: 480px; overflow-y: auto; 
+          border: 1px solid rgba(0,0,0,.08); border-radius: 10px; 
+          scrollbar-width: thin; background: #fff;
+          box-shadow: 0 6px 16px rgba(0,0,0,.06);
+          font-family: Inter, system-ui, -apple-system, sans-serif;
+        }
+        .ml-card::-webkit-scrollbar { width: 4px; }
+        .ml-card::-webkit-scrollbar-thumb { background: #ddd; border-radius: 10px; }
+        
+        .ml-hd { padding: 12px 12px 8px; border-bottom: 1px solid #f0f0f0; }
+        .ml-ttl { margin: 0 0 6px; font-weight:600; font-size: 15px; line-height: 1.2; color: #1a202c; text-align: left; }
+        
+        .ml-chip { border-radius: 999px; padding: 2px 8px; font-weight: 700; font-size: 10px; white-space: nowrap; display: inline-block; }
+        .ml-meta { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+        .ml-pill { background: #edf2f7; border-radius: 6px; padding: 2px 8px; font-size: 10px; color: #4a5568; font-weight: 600; }
+        
+        .ml-bd { padding: 12px; }
+        .ml-warning-box { background: #fff5f2; border: 1px solid #ffccbc; padding: 6px 10px; border-radius: 8px; font-size: 11px; color: #d32f2f; margin-bottom: 12px; text-align: left;}
+        
+        .ml-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; margin: 4px 0; color: #4a5568; }
+        .ml-bar { height: 6px; width: 100%; background: #f7fafc; border-radius: 999px; overflow: hidden; margin-top: 4px; border: 1px solid #edf2f7; }
+        .ml-bar i { display: block; height: 100%; transition: width 0.5s ease; }
+        
+        .ml-section-title { font-weight: 800; font-size: 11px; margin: 16px 0 8px; color: #2d3748; text-transform: uppercase; letter-spacing: 0.025em; border-bottom: 1px solid #edf2f7; padding-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+        
+        .ml-kpi { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+        .ml-box { background: #f8fafc; border-radius: 8px; padding: 8px; border: 1px solid #f1f5f9; }
+        .ml-cap { font-size: 10px; color: #718096; text-align: left; }
+        .ml-val { font-weight: 700; font-size: 13px; color: #1a202c; text-align: left;}
+        
+        .ml-profiles { max-height: 120px; overflow-y: auto; margin-top: 4px; padding-right: 4px; }
+        .ml-bld-wrapper { max-height: 150px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px; margin-top: 4px; }
+        
+        .ml-table { width: 100%; font-size: 10px; border-collapse: collapse; }
+        .ml-table th { text-align: left; background: #f8fafc; padding: 6px 8px; color: #718096; position: sticky; top: 0; }
+        .ml-table td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; }
       `;
       document.head.appendChild(style);
     }
@@ -218,41 +245,113 @@ export default function HospitalMapView({
       const map = { over: '#dc2626', vhigh: '#ea580c', high: '#f59e0b', norm: '#16a34a', low: '#6b7280', vlow: '#9ca3af' };
       return map[cat] || '#6b7280';
     };
+
     const occColor = getOccColor(d.occ_cat);
 
-    return `
-      <div class="ml-card">
-        <div class="ml-hd">
-          <h3 class="ml-ttl">${d.name}</h3>
-          <div class="ml-meta">
-            <span class="ml-pill">${d.org_type}</span>
-            <span class="ml-pill">${d.district}</span>
-          </div>
+    const profilesHtml = d.bed_profiles?.map((p) => {
+      const pct = d.total_beds > 0 ? Math.round((p.beds / d.total_beds) * 100) : 0;
+      return `
+        <div class="ml-row" style="margin-bottom: 2px;">
+          <span>${p.profile_name}</span>
+          <b>${p.beds} к. (${pct}%)</b>
         </div>
-        <div class="ml-bd">
-          <div class="ml-row">
-            <span class="ml-occ-badge" style="background:${occColor}22; color:${occColor}">
-              Загрузка: ${d.pct_occupied}%
-            </span>
-            <span style="font-size:10px; color:#666">${d.ownership}</span>
-          </div>
-          
-          <div class="ml-section-title">Коечный фонд</div>
-          <div class="ml-row">
-            Всего коек:</span> <b>${d.total_beds}</b>
-          </div>
-          <div class="ml-bar"><i style="width:${Math.min(d.pct_occupied, 100)}%; background:${occColor}"></i></div>
-          
-          <div class="ml-section-title">Показатели</div>
-          <div class="ml-row"><span>Летальность:</span> <b style="color:${d.lethal > 2 ? '#dc2626' : '#111'}">${d.lethal}%</b></div>
-          <div class="ml-row"><span>Оборот койки:</span> <b>${d.turnover}</b></div>
-          
-          <div class="ml-section-title">Здание</div>
-          <div class="ml-row"><span>Год постройки:</span> <b>${d.bld_year || '—'}</b></div>
-          <div class="ml-row"><span>Состояние:</span> <b>${d.bld_condition || 'Нет данных'}</b></div>
+        <div class="ml-bar" style="height: 4px; margin-bottom: 8px;"><i style="width: ${pct}%; background: #3b82f6"></i></div>
+      `;
+    }).join('') || '<div class="text-center text-gray-400 py-2">Нет данных по профилям</div>';
+
+    const patientStats = [
+      { label: 'Сельские', val: d.rural_admitted, color: '#16a34a' },
+      { label: 'Дети 0–14', val: d.children_admitted, color: '#0ea5e9' },
+    ].map(s => {
+      const pct = d.admitted > 0 ? ((s.val / d.admitted) * 100).toFixed(1) : '0.0';
+      return `
+        <div class="ml-row">
+          <span>${s.label}</span> <b style="color:${s.color}">${pct}%</b>
+        </div>
+        <div class="ml-bar"><i style="width:${pct}%; background:${s.color}"></i></div>
+      `;
+    }).join('');
+
+    return `
+    <div class="ml-card">
+      <div class="ml-hd">
+        <h3 class="ml-ttl">${d.name}</h3>
+        <div style="display:flex; align-items:center; gap:8px;">
+           <span class="ml-chip" style="background:${occColor}22; color:${occColor};">
+            ● ${d.pct_occupied}% загрузки
+          </span>
+          <span style="font-size:10px; color:#a0aec0; font-weight:600;">${d.ownership}</span>
+        </div>
+        <div class="ml-meta">
+          <span class="ml-pill">🚐 ${d.org_type}</span>
+          <span class="ml-pill">📍 ${d.district}</span>
         </div>
       </div>
-    `;
+
+      <div class="ml-bd">
+        ${d.work > 340 ? `
+          <div class="ml-warning-box">
+            ⚠️ Работа койки <b>${d.work} дн/год</b> — перегружено (норма ≤340)
+          </div>
+        ` : ''}
+
+        <div class="ml-row">
+          <span>Загруженность коек</span>
+          <b style="color:${occColor}">${d.pct_occupied}%</b>
+        </div>
+        <div class="ml-bar"><i style="width:${Math.min(d.pct_occupied, 100)}%; background:${occColor}"></i></div>
+        <div style="font-size: 10px; color: #a0aec0; margin-top: 4px; display:flex; justify-content:space-between; font-weight:600;">
+          <span>Занято: ${Math.round(d.occupied_beds)}</span>
+          <span>Всего: ${d.total_beds}</span>
+        </div>
+
+        <div class="ml-section-title">📊 Основные показатели</div>
+        <div class="ml-kpi">
+          <div class="ml-box">
+            <div class="ml-cap">СДПБ / Оборот</div>
+            <div class="ml-val">${d.sdpb} дн / ${d.turnover}</div>
+          </div>
+          <div class="ml-box">
+            <div class="ml-cap">Летальность</div>
+            <div class="ml-val" style="color:#e53e3e;">${d.lethal}%</div>
+          </div>
+        </div>
+
+        <div class="ml-section-title">👥 Пациенты</div>
+        ${patientStats}
+
+        <div class="ml-section-title">🛌 Профили (${d.total_beds} коек)</div>
+        <div class="ml-profiles">
+          ${profilesHtml}
+        </div>
+
+        <div class="ml-section-title">🏢 Все здания (${d.bld_count} корп.)</div>
+        <div class="ml-bld-wrapper">
+          <table class="ml-table">
+            <thead>
+              <tr>
+                <th>Год</th>
+                <th>Состояние</th>
+                <th style="text-align:right;">Износ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${d.all_blds && d.all_blds.length > 0 ? d.all_blds.map((b) => `
+                <tr>
+                  <td>${b.year_built || '—'}</td>
+                  <td>
+                    <span style="color:${b.wear > 50 ? '#dd6b20' : '#38a169'}; font-weight:bold;">
+                      ${b.wear > 50 ? '● Кап.рем' : '● Исправно'}
+                    </span>
+                  </td>
+                  <td style="text-align:right;"><b>${b.wear}%</b></td>
+                </tr>
+              `).join('') : '<tr><td colspan="3" style="text-align:center; padding:10px;">Нет данных</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
   };
 
   const buildRefusalPopupHTML = (item) => {
@@ -354,9 +453,9 @@ export default function HospitalMapView({
 
           if (activePopupRef.current) activePopupRef.current.remove();
 
-          const popup = new maplibregl.Popup({ offset: 15, closeButton: true })
+          const popup = new maplibregl.Popup({ offset: 25, closeButton: true, maxWidth: '400px' })
             .setLngLat(e.lngLat)
-            .setHTML('<div style="padding:10px">Загрузка...</div>')
+            .setHTML('<div style="padding: 20px; text-align:center;">Загрузка данных...</div>')
             .addTo(map);
           
           activePopupRef.current = popup;
