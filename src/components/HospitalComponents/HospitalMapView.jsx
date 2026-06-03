@@ -375,6 +375,25 @@ export default function HospitalMapView({
       </div>
     `;
   };
+  const buildPlannedObjectPopupHTML = (p) => {
+    const title = p.name || p.short_name || 'Объект здравоохранения';
+    
+    return `
+      <div style="padding: 10px 14px; font-family: sans-serif; min-width: 230px; text-align: left;">
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+          <span style="font-size: 14px;">🏗</span>
+          <div style="font-weight: bold; font-size: 13px; color: #333;">${title}</div>
+        </div>
+        <div style="color: #888; font-size: 11px; margin-left: 20px;">${p.district || 'Алматы'}</div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 8px 0;">
+        <div style="font-size: 12px; line-height: 1.6; color: #444;">
+          <div>Тип: <b>${p.obj_type || '—'}</b></div>
+          <div>Статус: <b>${p.status || '—'}</b></div>
+          <div>Коек: <b>${p.capacity || '—'}</b></div>
+        </div>
+      </div>
+    `;
+  };
 
   useEffect(() => {
     const map = mapRef.current;
@@ -585,6 +604,28 @@ export default function HospitalMapView({
               "circle-opacity": 1
             }
           });
+
+          map.on("click", "planned-dots-layer", (e) => {
+            if (!e.features?.length) return;
+            const props = e.features[0].properties;
+
+            if (activePopupRef.current) activePopupRef.current.remove();
+
+            const popup = new maplibregl.Popup({ offset: 15, closeButton: true, maxWidth: '400px' })
+              .setLngLat(e.lngLat)
+              .setHTML(buildPlannedObjectPopupHTML(props))
+              .addTo(map);
+
+            activePopupRef.current = popup;
+          });
+
+          map.on("mouseenter", "planned-dots-layer", () => {
+            map.getCanvas().style.cursor = 'pointer';
+          });
+          map.on("mouseleave", "planned-dots-layer", () => {
+            map.getCanvas().style.cursor = '';
+          });
+
         } else {
           map.getSource("planned-dots-source").setData(plannedObjects);
           map.setLayoutProperty("planned-dots-layer", "visibility", "visible");
