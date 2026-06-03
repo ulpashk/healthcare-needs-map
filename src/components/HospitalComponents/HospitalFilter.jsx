@@ -70,18 +70,17 @@ export default function HospitalFilter({ facilities, filters, onFiltersChange, o
 
   return (
     <div className="bg-white/95 rounded-xl border border-gray-200 shadow-xl flex flex-col max-h-[calc(100vh-120px)] w-80 overflow-hidden">
-      <div className="p-4 border-b bg-gray-50 flex items-center gap-2">
-        {isGeoPage ? <MapIcon className="w-4 h-4 text-blue-600" /> : <Building2 className="w-4 h-4 text-blue-600" />}
+      <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center gap-2">
         <h2 className="font-bold text-sm">
-          {isGeoPage ? "Геоанализ стационаров" : "Фильтры зданий"}
+          Фильтры
         </h2>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-2">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input 
-            className="w-full pl-9 pr-3 py-2 border rounded-lg text-xs outline-none focus:ring-2 ring-blue-100"
+            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-xs outline-none focus:ring-2 ring-blue-100"
             placeholder="Название стационара..."
             value={filters.searchQuery}
             onChange={(e) => onFiltersChange({ ...filters, searchQuery: e.target.value })}
@@ -91,7 +90,7 @@ export default function HospitalFilter({ facilities, filters, onFiltersChange, o
           <select 
             value={filters.district}
             onChange={(e) => onFiltersChange({ ...filters, district: e.target.value })}
-            className="w-full p-2 border rounded-lg text-xs bg-white outline-none focus:ring-2 ring-blue-100 cursor-pointer"
+            className="w-full p-2 border border-gray-200 rounded-lg text-xs bg-white outline-none focus:ring-2 ring-blue-100 cursor-pointer"
           >
             {districts.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
@@ -145,7 +144,7 @@ export default function HospitalFilter({ facilities, filters, onFiltersChange, o
                 ))}
               </div>
             </div>
-            <div className="space-y-2 border-t pt-3 text-left">
+            <div className="space-y-2 border-t border-gray-200 pt-3 text-left">
               <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
                 Сейсмика
               </h3>
@@ -224,7 +223,7 @@ export default function HospitalFilter({ facilities, filters, onFiltersChange, o
             </div>
           </div>
 
-          <div className={`flex items-center gap-2 p-2 rounded-lg border ${
+          <div className={`flex items-center gap-2 p-2 rounded-lg border border-gray-200 ${
             summaryData.avgOccupancy >= 70 ? "bg-orange-50 border-orange-100" : "bg-green-50 border-green-100"
           }`}>
             <div className={`flex items-center justify-center w-7 h-7 rounded-lg shrink-0 ${
