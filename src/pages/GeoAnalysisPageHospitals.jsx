@@ -15,6 +15,7 @@ export default function GeoAnalysisPageHospitals() {
     plannedObjects: null,
     gridCells: null,
     profilesSummary: null,
+    recommendations: [],
   });
   
   const [loading, setLoading] = useState(true);
@@ -34,13 +35,14 @@ export default function GeoAnalysisPageHospitals() {
   useEffect(() => {
     const loadAllData = async () => {
       try {
-        const [hosp, ref, zones, objs, grid, prof] = await Promise.all([
+        const [hosp, ref, zones, objs, grid, prof, recs] = await Promise.all([
           HospitalService.getHospitals(),
           HospitalService.getRefusals(),
           HospitalService.getPlannedZones(),
           HospitalService.getPlannedObjects(),
           HospitalService.getGridCells(),
-          HospitalService.getBedProfilesSummary()
+          HospitalService.getBedProfilesSummary(),
+          fetch("/geo-files/recommendations.json").then(res => res.json())
         ]);
 
         const filteredPlanned = {
@@ -56,7 +58,8 @@ export default function GeoAnalysisPageHospitals() {
           plannedZones: zones,
           plannedObjects: filteredPlanned,
           gridCells: grid,
-          profilesSummary: prof
+          profilesSummary: prof,
+          recommendations: recs
         });
       } catch (err) {
         console.error("Ошибка загрузки данных геоанализа:", err);
@@ -87,6 +90,7 @@ export default function GeoAnalysisPageHospitals() {
         gridCells={data.gridCells}
         plannedZones={data.plannedZones}
         plannedObjects={data.plannedObjects}
+        recommendations={data.recommendations}
         refusalsData={data.refusals?.results || []} 
         activeGeoLayers={filters.activeGeoLayers}
         geoAccessMode={filters.geoAccessMode}

@@ -594,7 +594,7 @@ export default function HospitalMapView({
       }
 
       if (activeGeoLayers.includes("zones") && plannedZones) {
-        const enrichedData = enrichZonesWithEverything(plannedZones, plannedObjects);
+        const enrichedData = enrichZonesWithEverything(plannedZones, plannedObjects, recommendations);
         if (!map.getSource("zones-source")) {
           map.addSource("zones-source", { type: "geojson", data: enrichedData });
           map.addLayer({
@@ -628,7 +628,50 @@ export default function HospitalMapView({
               ],
               "line-width": 1.2
             }
+          }, "hospitals-layer");
+
+          map.on("click", "zones-layer", (e) => {
+            if (!e.features?.length) return;
+            const p = e.features[0].properties;
+            
+            if (activePopupRef.current) activePopupRef.current.remove();
+
+            let html = `<div style="padding: 10px; font-family: sans-serif; min-width:240px; text-align: left;">`;
+            
+            if (String(p.is_planned) === "true") {
+              html += `
+                <b style="color: #2E7D32; font-size: 13px;">✅ ЗАПЛАНИРОВАНА БОЛЬНИЦА</b>
+                <p style="margin-top: 5px; font-weight: bold; border-top:1px solid #eee; padding-top:5px; font-size:12px;">${p.planned_hosp_name}</p>
+                <p style="font-size: 10px; color: #666;">(объект в радиусе 2.5 км от этой зоны)</p>
+              `;
+            } else if (String(p.has_rec) === "true") {
+              html += `
+                <b style="color: #D32F2F; font-size: 13px;">⚠ РЕКОМЕНДАЦИЯ СИСТЕМЫ</b>
+                <p style="margin: 5px 0; font-weight: bold; color: #333; font-size:12px;">Нужно построить: ${p.rec_type}</p>
+                <div style="font-size: 11px; background: #FFF3F3; padding: 8px; border-radius: 6px; border-left: 4px solid #D32F2F; line-height:1.4;">
+                  <b>Причина:</b> ${p.rec_reason}<br>
+                  <b style="display:block; margin-top:4px;">Масштаб:</b> ${p.rec_scale}
+                </div>
+              `;
+            } else {
+              html += `
+                <b style="color: #333; font-size: 13px;">Зона Генплана</b>
+                <p style="font-size: 12px; margin-top: 5px; color: #666;">Приоритет дефицита в районе: <b>${p.priority || 'норма'}</b></p>
+              `;
+            }
+            html += `</div>`;
+
+            const popup = new maplibregl.Popup({ closeButton: true, maxWidth: '300px' })
+              .setLngLat(e.lngLat)
+              .setHTML(html)
+              .addTo(map);
+
+            activePopupRef.current = popup;
           });
+
+          map.on("mouseenter", "zones-layer", () => map.getCanvas().style.cursor = 'pointer');
+          map.on("mouseleave", "zones-layer", () => map.getCanvas().style.cursor = '');
+
         } else {
           map.getSource("zones-source").setData(enrichedData);
           map.setLayoutProperty("zones-layer", "visibility", "visible");
