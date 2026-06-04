@@ -103,6 +103,7 @@ export default function GeoAnalysisPageHospitals() {
       <div className="absolute top-4 left-4 z-10">
         <HospitalFilter 
           facilities={filteredHospitals}
+          allFacilities={data.hospitals}
           filters={filters}
           onFiltersChange={setFilters}
         />

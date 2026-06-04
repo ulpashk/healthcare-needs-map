@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Search, Building2, TrendingUp, ChevronDown, ChevronUp, Bed, Users, MapIcon } from 'lucide-react';
+import { Search, Building2, TrendingUp, ChevronDown, ChevronUp, Bed, Users, MapIcon, Stethoscope, Landmark } from 'lucide-react';
 
 const districts = ["Все районы", "Алатауский", "Алмалинский", "Ауэзовский", "Бостандыкский", 
   "Жетысуский", "Медеуский", "Наурызбайский", "Турксибский"];
@@ -22,11 +22,42 @@ const GEO_LAYERS = [
   { id: "orgTypeGrid", label: "🗺 Грид по типу МО" },
 ];
 
-export default function HospitalFilter({ facilities, filters, onFiltersChange, onShowBuildingAnalysis }) {
-  const [expandedSections, setExpandedSections] = useState({ tech: true });
+const OWN_TYPE_OPTIONS = [
+  { id: "Городская", label: "Городская (УЗ Алматы)", color: "#1565C0" },
+  { id: "Республиканская", label: "Республиканская (МЗ РК)", color: "#2E7D32" },
+  { id: "Ведомственная", label: "Ведомственная", color: "#E65100" },
+  { id: "Частная", label: "Частная", color: "#6A1B9A" },
+];
+
+export default function HospitalFilter({ facilities, allFacilities, filters, onFiltersChange, onShowBuildingAnalysis }) {
+  const [expandedSections, setExpandedSections] = useState({ tech: true, orgTypes: false,
+    ownership: false });
   const location = useLocation();
   const isGeoPage = location.pathname.includes('geo-analysis');
   const isBuildingsPage = location.pathname.includes('buildings');
+
+  const facilityTypeOptions = useMemo(() => {
+    const types = [...new Set(allFacilities.map(f => f.org_type).filter(Boolean))];
+    return types.sort().map(t => ({ id: t, label: t }));
+  }, [allFacilities]);
+
+  const profileOptions = useMemo(() => {
+    const allProfiles = allFacilities.flatMap(f => f.profile_groups || []);
+    const uniqueProfiles = [...new Set(allProfiles)].filter(Boolean);
+    return uniqueProfiles.sort().map(p => ({ id: p, label: p }));
+  }, [allFacilities]);
+
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  const handleToggleArrayFilter = (field, value) => {
+    const currentValues = filters[field] || [];
+    const nextValues = currentValues.includes(value)
+      ? currentValues.filter(v => v !== value)
+      : [...currentValues, value];
+    onFiltersChange({ ...filters, [field]: nextValues });
+  };
 
   const summaryData = useMemo(() => {
     const filtered = facilities.filter((f) => {
@@ -121,29 +152,63 @@ export default function HospitalFilter({ facilities, filters, onFiltersChange, o
         )}
 
         {isBuildingsPage && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider text-left">Тех. состояние</h3>
-              <div className="bg-blue-50/50 p-2 rounded-lg space-y-1">
-                {TECH_CONDITIONS.map(item => (
-                  <label key={item.id} className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      className="w-3 h-3 rounded"
-                      checked={filters.selectedTechConditions?.includes(item.id)}
-                      onChange={() => {
-                        const next = filters.selectedTechConditions.includes(item.id)
-                          ? filters.selectedTechConditions.filter(i => i !== item.id)
-                          : [...filters.selectedTechConditions, item.id];
-                        onFiltersChange({ ...filters, selectedTechConditions: next });
-                      }}
-                    />
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-[11px] text-gray-700">{item.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
+          <div className="space-y-2">
+            <FilterSection 
+              title="Техническое состояние" 
+              isOpen={expandedSections.tech} 
+              onToggle={() => toggleSection('tech')}
+            >
+              {TECH_CONDITIONS.map(opt => (
+                <CheckboxItem 
+                  key={opt.id} label={opt.label} color={opt.color}
+                  checked={filters.selectedTechConditions?.includes(opt.id)}
+                  onChange={() => handleToggleArrayFilter('selectedTechConditions', opt.id)}
+                />
+              ))}
+            </FilterSection>
+            <FilterSection 
+              title="Типы организаций" 
+              isOpen={expandedSections.orgTypes} 
+              onToggle={() => toggleSection('orgTypes')}
+            >
+              {facilityTypeOptions.map(opt => (
+                <CheckboxItem 
+                  key={opt.id} label={opt.label} 
+                  checked={filters.facilityTypes?.includes(opt.id)}
+                  onChange={() => handleToggleArrayFilter('facilityTypes', opt.id)}
+                />
+              ))}
+            </FilterSection>
+
+            <FilterSection 
+              title="Профили медицинской помощи" 
+              isOpen={expandedSections.profiles} 
+              onToggle={() => toggleSection('profiles')}
+            >
+              {profileOptions.map(opt => (
+                <CheckboxItem 
+                  key={opt.id} label={opt.label} 
+                  checked={filters.profileGroups?.includes(opt.id)}
+                  onChange={() => handleToggleArrayFilter('profileGroups', opt.id)}
+                />
+              ))}
+            </FilterSection>
+
+            {/* 3. Принадлежность */}
+            <FilterSection 
+              title="Принадлежность" 
+              isOpen={expandedSections.ownership} 
+              onToggle={() => toggleSection('ownership')}
+            >
+              {OWN_TYPE_OPTIONS.map(opt => (
+                <CheckboxItem 
+                  key={opt.id} label={opt.label} color={opt.color}
+                  checked={filters.ownTypes?.includes(opt.id)}
+                  onChange={() => handleToggleArrayFilter('ownTypes', opt.id)}
+                />
+              ))}
+            </FilterSection>
+
             <div className="space-y-2 border-t border-gray-200 pt-3 text-left">
               <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
                 Сейсмика
@@ -178,12 +243,6 @@ export default function HospitalFilter({ facilities, filters, onFiltersChange, o
                         type="checkbox"
                         className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600"
                         checked={filters.activeGeoLayers?.includes(layer.id)}
-                        // onChange={(e) => {
-                        //   const next = e.target.checked
-                        //     ? [...filters.activeGeoLayers, layer.id]
-                        //     : filters.activeGeoLayers.filter((id) => id !== layer.id);
-                        //   onFiltersChange({ ...filters, activeGeoLayers: next });
-                        // }}
                         onChange={(e) => {
                           const isChecked = e.target.checked;
                           let nextLayers;
@@ -265,3 +324,24 @@ export default function HospitalFilter({ facilities, filters, onFiltersChange, o
     </div>
   );
 }
+
+const FilterSection = ({ title, icon, children, isOpen, onToggle }) => (
+  <div className="border border-gray-100 rounded-lg overflow-hidden">
+    <button onClick={onToggle} className="w-full flex items-center justify-between p-2.5 bg-gray-50/50 hover:bg-gray-100 transition-colors">
+      <div className="flex items-center gap-2 text-gray-600">
+        {icon}
+        <span className="text-[10px] font-bold uppercase tracking-tight">{title}</span>
+      </div>
+      <ChevronDown size={14} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+    </button>
+    {isOpen && <div className="p-2 space-y-1.5 bg-white border-t border-gray-50 max-h-48 overflow-y-auto scrollbar-hide">{children}</div>}
+  </div>
+);
+
+const CheckboxItem = ({ label, checked, onChange, color }) => (
+  <label className="flex items-center gap-2 cursor-pointer group">
+    <input type="checkbox" checked={checked} onChange={onChange} className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-0" />
+    {color && <div className="w-2 h-2 rounded-full shrink-0" style={{backgroundColor: color}} />}
+    <span className="text-[11px] text-gray-700 group-hover:text-blue-600 truncate">{label}</span>
+  </label>
+);

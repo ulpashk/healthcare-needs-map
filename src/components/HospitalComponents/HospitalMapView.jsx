@@ -419,13 +419,13 @@ export default function HospitalMapView({
       const buildingColorLogic = [
         "case",
         ["to-boolean", ["coalesce", ["get", "bld_emergency"], false]], "#7B0000",
-        ["in", "Аварийное", ["coalesce", ["get", "bld_condition"], ""]], "#B71C1C",
+        ["in", "Аварийное", ["coalesce", ["get", "bld_tech"], ""]], "#B71C1C",
         ["to-boolean", ["coalesce", ["get", "bld_seismic"], false]], "#EF6C00",
         ["any",
-            ["in", "Ветхое", ["coalesce", ["get", "bld_condition"], ""]],
-            ["in", "Неудовлетворительное", ["coalesce", ["get", "bld_condition"], ""]]
+            ["in", "Ветхое", ["coalesce", ["get", "bld_tech"], ""]],
+            ["in", "Неудовлетворительное", ["coalesce", ["get", "bld_tech"], ""]]
         ], "#F9A825",
-        ["in", "Исправное", ["coalesce", ["get", "bld_condition"], ""]], "#2E7D32",
+        ["in", "Исправное", ["coalesce", ["get", "bld_tech"], ""]], "#2E7D32",
         "#9e9e9e"
       ];
 

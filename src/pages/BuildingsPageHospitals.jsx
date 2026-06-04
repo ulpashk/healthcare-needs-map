@@ -16,8 +16,11 @@ export default function BuildingsPageHospitals() {
     district: "Все районы",
     searchQuery: "",
     selectedTechConditions: [],
+    facilityTypes: [],
+    ownTypes: [],  
     mapMode: "buildings",
-    showSeismicGrid: false
+    showSeismicGrid: false,
+    profileGroups: [],
   });
 
   useEffect(() => {
@@ -49,12 +52,25 @@ export default function BuildingsPageHospitals() {
       if (filters.selectedTechConditions.length > 0) {
         let conditionKey = "gray";
         if (h.bld_emergency) conditionKey = "dark-red";
-        else if (h.bld_condition?.includes("Аварийное")) conditionKey = "red";
+        else if (h.bld_tech?.includes("Аварийное")) conditionKey = "red";
         else if (h.bld_seismic) conditionKey = "orange";
-        else if (h.bld_condition?.includes("Ветхое") || h.bld_condition?.includes("Неудовлетворительное")) conditionKey = "yellow";
-        else if (h.bld_condition?.includes("Исправное")) conditionKey = "green";
+        else if (h.bld_tech?.includes("Ветхое") || h.bld_tech?.includes("Неудовлетворительное")) conditionKey = "yellow";
+        else if (h.bld_tech?.includes("Исправное")) conditionKey = "green";
         
         if (!filters.selectedTechConditions.includes(conditionKey)) return false;
+      }
+
+      if (filters.facilityTypes.length > 0) {
+        if (!filters.facilityTypes.includes(h.org_type)) return false;
+      }
+
+      if (filters.ownTypes.length > 0) {
+        if (!filters.ownTypes.includes(h.own_type)) return false;
+      }
+      if (filters.profileGroups.length > 0) {
+        if (!h.profile_groups || !h.profile_groups.some(p => filters.profileGroups.includes(p))) {
+          return false;
+        }
       }
       return true;
     });
@@ -76,6 +92,7 @@ export default function BuildingsPageHospitals() {
       <div className="absolute top-4 left-4 z-10">
         <HospitalFilter 
           facilities={filteredHospitals}
+          allFacilities={hospitals}
           filters={filters}
           onFiltersChange={setFilters}
           onShowBuildingAnalysis={() => setShowAnalysis(true)}
