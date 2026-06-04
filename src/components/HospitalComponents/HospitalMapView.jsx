@@ -140,7 +140,7 @@ export default function HospitalMapView({
   const [districtsGeoJson, setDistrictsGeoJson] = useState(null);
 
   useEffect(() => {
-    fetch("https://admin.smartalmaty.kz/api/v1/address/districts?city=1")
+    fetch("https://admin.smartalmaty.kz/api/v1/address/districts/?city=1")
       .then(res => res.json())
       .then(data => setDistrictsGeoJson(data.results));
   }, []);

@@ -309,14 +309,19 @@ export const useMapData = (mode) => {
         }))
     } : null;
 
+    const totals = filteredPmspFeatures.reduce((acc, f) => {
+      const p = f.properties;
+      acc.rpn += (p.population || 0);
+      acc.capacity += (p.cap_planned || 0);
+      return acc;
+    }, { rpn: 0, capacity: 0 });
+
     const stats = {
       totalCount: filteredPmspFeatures.length,
-      totalPopulation: filteredPmspFeatures.reduce((s, f) => s + (f.properties.population || 0), 0),
-      avgVisit: filteredPmspFeatures.length > 0 
-        ? (filteredPmspFeatures.reduce((s, f) => s + (f.properties.cap_load || 0), 0) / filteredPmspFeatures.length).toFixed(1)
-        : 0,
-      avgPerson: filteredPmspFeatures.length > 0
-        ? (filteredPmspFeatures.reduce((s, f) => s + (f.properties.doctor_load || 0), 0) / filteredPmspFeatures.length).toFixed(1)
+      totalPopulation: totals.rpn,
+      avgVisit: totals.capacity,
+      avgPerson: totals.capacity > 0 
+        ? Math.round((totals.rpn / (totals.capacity * 47.5)) * 100)
         : 0
     };
 
