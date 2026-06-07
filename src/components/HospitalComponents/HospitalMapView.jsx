@@ -356,25 +356,45 @@ export default function HospitalMapView({
 
   const buildRefusalPopupHTML = (item) => {
     const pctRef = item.total_emergency_visits > 0 
-      ? (item.hospitalization_denied / item.total_emergency_visits * 100).toFixed(1) 
+      ? ((item.hospitalization_denied / item.total_emergency_visits) * 100).toFixed(1) 
       : "0";
 
+    const occPct = (item.occupancy_rate_percent * 100).toFixed(1);
+
     return `
-      <div style="padding: 12px; font-family: sans-serif; min-width: 250px; text-align: left;">
-        <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px; color: #7B0000;">
-          ${item.facility_type}
+      <div style="padding: 12px; font-family: sans-serif; min-width: 250px; text-align: left; line-height: 1.5;">
+        <div style="font-weight: bold; font-size: 14px; margin-bottom: 2px; color: #212121;">
+          ${item.facility_type || 'Объект'}
         </div>
-        <div style="color: #666; font-size: 11px; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 4px;">
-          ${item.district}
+        <div style="color: #888; font-size: 11px; margin-bottom: 8px;">
+          ${item.district || ''}
         </div>
-        <div style="font-size: 12px; line-height: 1.6; color: #333;">
-          Обращений: <b>${Math.round(item.total_emergency_visits).toLocaleString()}</b><br/>
-          Отказано: <b>${Math.round(item.hospitalization_denied).toLocaleString()} (${pctRef}%)</b><br/>
-          Занятость коек: <b>${(item.occupancy_rate_percent * 100).toFixed(1)}%</b>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 6px 0;" />
+        
+        <div style="font-size: 12px; color: #333;">
+          <div style="display:flex; justify-content:space-between">
+            <span>Обращений:</span> <b>${Math.round(item.total_emergency_visits || 0).toLocaleString()}</b>
+          </div>
+          <div style="display:flex; justify-content:space-between">
+            <span>Госпитализировано:</span> <b>${Math.round(item.hospitalized_emerg || 0).toLocaleString()}</b>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-top: 2px; color: #C62828;">
+            <span>Отказано:</span> <b>${Math.round(item.hospitalization_denied || 0).toLocaleString()} (${pctRef}%)</b>
+          </div>
+          
+          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #eee;">
+            <div style="display:flex; justify-content:space-between">
+              <span>Занятость коек:</span> <b>${occPct}%</b>
+            </div>
+            <div style="display:flex; justify-content:space-between">
+              <span>Коек (ср.год):</span> <b>${Math.round(item.beds_avg_annual || 0)}</b>
+            </div>
+          </div>
         </div>
       </div>
     `;
   };
+
   const buildPlannedObjectPopupHTML = (p) => {
     const title = p.name || p.short_name || 'Объект здравоохранения';
     
