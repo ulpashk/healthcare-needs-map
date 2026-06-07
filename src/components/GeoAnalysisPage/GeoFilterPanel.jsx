@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChartLine, ChevronDown, RotateCcw, Bus, Train, Search } from 'lucide-react';
+import { ChartLine, ChevronDown, RotateCcw, Bus, Train, Search, TrendingUp } from 'lucide-react';
 import PlanningToolList from './PlanningToolList';
 import Indicators from '../PmspComponents/MapFilter/Indicators';
 
@@ -10,6 +10,7 @@ export default function GeoFilterPanel({
   selectedVisits, setSelectedVisits,
   selectedAffiliations, setSelectedAffiliations,
   totalCount, totalPopulation, avgPerson, avgVisit,
+  forecastStats,
   activeScenario, setActiveScenario,
   onReset, setIsPlanningActive, isPlanningActive, plannedZonesData,
   onZoomTo
@@ -267,7 +268,7 @@ export default function GeoFilterPanel({
         </div>
 
         <div
-          className={`flex flex-col min-h-0 transition-all duration-500 ease-in-out ${
+          className={`flex flex-col min-h-0 overflow-y-auto scrollbar-hide transition-all duration-500 ease-in-out ${
             filtersHidden ? "max-h-0 opacity-0 overflow-hidden" : "max-h-screen opacity-100"
           }`}
         >
@@ -294,7 +295,7 @@ export default function GeoFilterPanel({
                 <button
                   key={s.id}
                   onClick={() => setActiveScenario(s.id)}
-                  className={`flex-1 py-1.5 rounded-lg border text-[11px] font-bold transition-all ${
+                  className={`flex-1 py-1.5 rounded-lg border text-[11px] font-bold transition-all cursor-pointer ${
                     activeScenario === s.id 
                     ? 'bg-emerald-50 border-emerald-600 text-emerald-800 shadow-sm' 
                     : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
@@ -306,10 +307,90 @@ export default function GeoFilterPanel({
             </div>
           </div>
 
+          {activeScenario === '2028' && forecastStats && (
+            <div className="p-3 space-y-3 animate-in fade-in slide-in-from-top-2 duration-500">
+              
+              {/* 1. Общий прогноз */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-left">
+                <div className="flex items-center gap-2 text-amber-800 font-bold mb-2">
+                  <TrendingUp size={16} />
+                  <span>Прогноз 2026-2028</span>
+                </div>
+                <div className="space-y-1 text-[11px]">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Население (прирост):</span>
+                    <span className="font-bold">~{(forecastStats.forecastPopBase / 1000000).toFixed(2)} млн</span>
+                  </div>
+                  <div className="flex justify-between text-amber-700">
+                    <span>Доп. от МЖК:</span>
+                    <span className="font-bold">+{(forecastStats.zhkhPopAdd / 1000).toFixed(1)} тыс. чел.</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Дефицит / Мощность */}
+              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-left">
+                <div className="font-bold text-indigo-900 text-[12px] mb-2 flex justify-between">
+                  <span>🏗 Строящиеся ЖК</span>
+                  <span>{forecastStats.zhkCount} об.</span>
+                </div>
+                
+                <div className="space-y-2 text-[11px]">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Прогнозное население:</span>
+                    <span className="font-bold">{(forecastStats.totalNewZhkPop / 1000).toFixed(1)} тыс.</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">План. мощность ПМСП:</span>
+                    <span className="font-bold text-gray-800">{(forecastStats.totalPlannedServedPop / 1000).toFixed(1)} тыс.</span>
+                  </div>
+
+                  <div className={`p-2 mt-2 rounded flex justify-between items-center font-bold ${
+                    forecastStats.forecastDeficit > 0 ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'
+                  }`}>
+                    <span>Дефицит/Профицит:</span>
+                    <span>+{(forecastStats.forecastDeficit / 1000).toFixed(1)} тыс. чел. ⚠</span>
+                  </div>
+
+                  {forecastStats.criticalDistrictsCount > 0 && (
+                    <div className="mt-2 text-red-600 font-bold">
+                      Критичных районов: {forecastStats.criticalDistrictsCount}
+                    </div>
+                  )}
+                  
+                  <div className="text-[10px] text-gray-500 italic leading-tight">
+                    * Плановая мощность объектов до 2027 г. в сравнении с новым населением от ЖК
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Улучшение доступности */}
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-left">
+                <div className="text-emerald-800 font-bold text-[11px] flex items-center gap-2">
+                  <Bus size={14} />
+                  <span>Улучшение доступности</span>
+                </div>
+                <div className="mt-1 text-xs font-bold text-emerald-900">
+                  {forecastStats.improvedZonesCount} ячеек стали доступны
+                </div>
+              </div>
+
+              {/* 4. Потребность */}
+              <div className="bg-red-50 border border-red-100 p-3 rounded-lg text-left">
+                <span className="text-red-800 font-bold text-[11px] block mb-1 uppercase tracking-wider">Требуется новых ПМСП</span>
+                <div className="text-2xl font-black text-red-600 leading-none">
+                  {/* {forecastStats.neededNewUnits} <small className="text-xs">ед.</small> */}
+                  {forecastStats.plannedPmspObjects.length} <small className="text-xs">ед.</small>
+                </div>
+                <div className="text-[9px] text-red-400 mt-1 uppercase">по СН РК 3.01-01-2013</div>
+              </div>
+            </div>
+          )}
+
           <div className="mt-2 border-t border-gray-200">
             <button 
               onClick={() => setIsPlanningActive(!isPlanningActive)}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 flex items-center justify-between transition-colors shadow-inner"
+              className="w-full bg-blue-600 cursor-pointer hover:bg-blue-700 text-white p-3 flex items-center justify-between transition-colors shadow-inner"
             >
               <div className="flex items-center gap-2">
                 <ChartLine className="w-4 h-4" />
@@ -330,7 +411,7 @@ export default function GeoFilterPanel({
         <div className="p-2 bg-gray-50 border-t border-gray-200 shrink-0">
           <button 
             onClick={onReset}
-            className="w-full py-2 flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-lg text-gray-500 font-bold hover:bg-gray-100 active:scale-95 transition-all shadow-sm"
+            className="w-full py-2 flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-lg text-gray-500 font-bold hover:bg-gray-100 active:scale-95 transition-all shadow-sm cursor-pointer"
           >
             <RotateCcw className="w-4 h-4 text-gray-400" />
             <span>Сбросить фильтры</span>

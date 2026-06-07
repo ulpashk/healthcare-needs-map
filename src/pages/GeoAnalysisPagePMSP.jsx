@@ -49,6 +49,7 @@ export default function GeoAnalysisPagePMSP() {
           avgVisit={avgVisit}
           avgPerson={avgPerson}
           activeScenario={activeScenario}
+          forecastStats={mapData?.forecastStats}
           setActiveScenario={setActiveScenario}
           onReset={() => handleReset()}
           plannedZonesData={mapData?.plannedZones}

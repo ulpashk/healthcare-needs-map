@@ -25,6 +25,12 @@ const fastDistM = (lat1, lng1, lat2, lng2) => {
   return Math.sqrt(dlat * dlat + dlng * dlng);
 };
 
+const GROWTH_FACTOR = 1.03;
+const PEOPLE_PER_FLAT = 3.5;
+const PEOPLE_PER_FLAT_SIMPLE = 2.5;
+const CAPACITY_COEFF = 47.5;
+const NORM_POP_UNIT = 30000; 
+
 export const useMapData = (mode) => {
 
   const { data: cache, isLoading, isFetching } = useHealthcareQueries(mode);
@@ -84,10 +90,10 @@ export const useMapData = (mode) => {
     if (!cache.city || !cache.pmsp || !cache.dists || !cache.plannedZones) return null;
 
     const { 
-      districts = ["Все районы"], 
+      districts = ["Все районы"],
       activeScenario = 'current',
-      visits = ["Все посещения"], 
-      layers = ["Все слои"], 
+      visits = ["Все посещения"],
+      layers = ["Все слои"],
       affiliations = ["all"],
       extraFilters = {}
     } = filters;
@@ -124,7 +130,6 @@ export const useMapData = (mode) => {
       ...cache.dists,
       features: cache.dists.features.filter(f => checkDistrict(f.properties.name_ru))
     };
-
 
     const getCentroid = (geom) => {
       if (!geom || !geom.coordinates) return { lat: 0, lng: 0 };
@@ -325,6 +330,69 @@ export const useMapData = (mode) => {
         : 0
     };
 
+    let forecastStats = null;
+
+    const plannedPmspObjects = cache.plannedObjs?.features?.filter(f => f.properties.is_pmsp) || [];
+
+    if (cache.pmsp && cache.zhk && cache.plannedObjs) {
+      // 1. Текущее население (РПН)
+      const currentPop = cache.pmsp.results.reduce((s, d) => s + (d.population || 0), 0);
+      const zhkhPopAdd_Simple = Math.round(cache.zhk.zhk_rows.reduce((s, p) => s + (p.flats || 0), 0) * PEOPLE_PER_FLAT_SIMPLE);
+
+      // 2. Прогноз населения (естественный прирост города)
+      const forecastPopBase = Math.round(currentPop * GROWTH_FACTOR);
+      
+      // 3. Суммируем данные по ЖК из API
+      // total_zhk_pop — это сколько НОВЫХ людей приедет в строящиеся ЖК
+      const totalNewZhkPop = cache.zhk.district_summary.reduce((s, d) => s + (d.total_zhk_pop || 0), 0);
+      
+      // 4. Суммируем плановую мощность (total_pmsp_cap) из всех записей
+      // В вашем API "Алмалинский район" имеет население, а "Алмалинский" — мощность. 
+      // Суммируем всё, чтобы получить общую цифру по городу.
+      const totalPlannedCapacityPop = cache.zhk.district_summary.reduce((s, d) => s + (d.total_pmsp_cap || 0), 0);
+
+      // 5. Расчет дефицита (как в HTML: Население ЖК - Мощность ПМСП)
+      // Если > 0, значит мощностей не хватает
+      const forecastDeficit = totalNewZhkPop - totalPlannedCapacityPop;
+
+      // 6. Подсчет критичных районов
+      // Район считается критичным, если его население от ЖК больше, чем планируемая мощность.
+      // Т.к. в API данные разнесены по разным строкам (с "район" и без), 
+      // сгруппируем их по короткому имени для точности:
+      const districtMap = {};
+      cache.zhk.district_summary.forEach(d => {
+        const key = d.district.replace(" район", "").trim();
+        if (!districtMap[key]) districtMap[key] = { pop: 0, cap: 0 };
+        districtMap[key].pop += (d.total_zhk_pop || 0);
+        districtMap[key].cap += (d.total_pmsp_cap || 0);
+      });
+      const criticalDistrictsCount = Object.values(districtMap).filter(v => v.pop > v.cap).length;
+
+      // 7. Количество планируемых объектов ПМСП (для показателя "8 зон")
+      const plannedPmspCount = cache.plannedObjs.features.filter(f => f.properties.is_pmsp).length;
+
+      // 8. Потребность в новых ПМСП (по красным зонам)
+      const redPop = (cache.grid?.features || [])
+        .filter(f => f.properties.pmsp_access_cat === 'red')
+        .reduce((s, f) => s + (f.properties.population || 0), 0);
+
+      const improvedCellsCount = (recomputedGrid?.features || [])
+        .filter(f => f.properties.improved).length;
+
+      forecastStats = {
+        forecastPopBase,            // Прогноз 2028 (2.47 млн)
+        zhkhPopAdd: zhkhPopAdd_Simple, // Доп. население от МЖК (208.1 тыс)
+        totalNewZhkPop: totalNewZhkPop, // Доп. население от МЖК (208.1 тыс)
+        zhkCount: cache.zhk.zhk_rows.length,
+        totalPlannedServedPop: totalPlannedCapacityPop, // Мощность 135.8 тыс
+        forecastDeficit,            // Дефицит +72.3 тыс
+        improvedZonesCount: improvedCellsCount, // "8 зон стали доступны"
+        neededNewUnits: Math.max(0, Math.round(redPop / NORM_POP_UNIT)),
+        criticalDistrictsCount, 
+        plannedPmspObjects
+      };
+    }
+
     return {
       city: cache.city,
       plannedZones: finalPlannedZones,
@@ -336,7 +404,8 @@ export const useMapData = (mode) => {
       grid: recomputedGrid,
       heatDeficit: cache.heatDeficit,
       heatCoverage: cache.heatCoverage,
-      stats
+      stats, 
+      forecastStats
     };
   }, [cache]);
 

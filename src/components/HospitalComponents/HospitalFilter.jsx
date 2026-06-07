@@ -30,7 +30,7 @@ const OWN_TYPE_OPTIONS = [
 ];
 
 export default function HospitalFilter({ facilities, allFacilities, filters, onFiltersChange, onShowBuildingAnalysis }) {
-  const [expandedSections, setExpandedSections] = useState({ tech: true, orgTypes: false,
+  const [expandedSections, setExpandedSections] = useState({ tech: false, orgTypes: false,
     ownership: false });
   const location = useLocation();
   const isGeoPage = location.pathname.includes('geo-analysis');
