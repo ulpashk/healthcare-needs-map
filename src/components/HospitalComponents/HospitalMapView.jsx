@@ -7,7 +7,7 @@ import { HospitalService } from '../../services/hospitalApiService';
 import { MapControls } from '../general/MapControls';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { getMoSettings } from '../../constants/mo-config';
-import { getDistanceMeters, computeGridData, computeOrgTypeGrid, enrichZonesWithEverything } from '../../utils/gridUtils';
+import { getDistanceMeters, computeGridData, computeOrgTypeGrid, enrichZonesWithEverything } from '../../utils/hosp-map-func';
 import { buildHospitalPopup, buildPlannedObjectPopupHTML, buildRefusalPopupHTML } from '../../utils/hosp-popups';
 
 export default function HospitalMapView({
