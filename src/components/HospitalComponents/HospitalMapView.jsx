@@ -117,7 +117,7 @@ function computeOrgTypeGrid(gridGeoJSON, targets, nearThreshold, farThreshold) {
   return { ...gridGeoJSON, features };
 }
 
-export default function HospitalMapView({ 
+export default function HospitalMapView({
   facilities = [],
   mapMode = "buildings",
   selectedDistrict = "Все районы",
@@ -142,55 +142,50 @@ export default function HospitalMapView({
   useEffect(() => {
     fetch("https://admin.smartalmaty.kz/api/v1/address/districts/?city=1")
       .then(res => res.json())
-      .then(data => setDistrictsGeoJson(data.results));
+      .then(data => setDistrictsGeoJson(data));
   }, []);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !districtsGeoJson) return;
+    if (!map || !districtsGeoJson || !districtsGeoJson.features) return;
 
-    const updateDistrictLayer = () => {
+    const initDistricts = () => {
       if (!map.isStyleLoaded()) return;
-
       const sourceId = 'districts-source';
-      
+
       if (!map.getSource(sourceId)) {
         map.addSource(sourceId, { type: 'geojson', data: districtsGeoJson });
+
+        const beforeId = map.getLayer('hospitals-layer') ? 'hospitals-layer' : undefined;
+
+        map.addLayer({
+          id: 'districts-fill',
+          type: 'fill',
+          source: sourceId,
+          filter: ["all"],
+          paint: {
+            'fill-color': '#3773ff3a',
+            'fill-opacity': 0.15
+          }
+        }, beforeId);
+
+        map.addLayer({
+          id: 'districts-outline',
+          type: 'line',
+          source: sourceId,
+          filter: ["all"],
+          paint: {
+            'line-color': '#3772ff',
+            'line-width': 2,
+            'line-opacity': 0.5
+          }
+        }, beforeId);
       }
-
-      if (map.getLayer('districts-fill')) map.removeLayer('districts-fill');
-      if (map.getLayer('districts-outline')) map.removeLayer('districts-outline');
-
-      const filterLogic = selectedDistrict === "Все районы" 
-        ? ["has", "name_ru"] 
-        : ["==", ["get", "name_ru"], selectedDistrict];
-
-      map.addLayer({
-        id: 'districts-fill',
-        type: 'fill',
-        source: sourceId,
-        filter: filterLogic,
-        paint: {
-          'fill-color': '#3772ff',
-          'fill-opacity': selectedDistrict === "Все районы" ? 0.05 : 0.2
-        }
-      }, 'hospitals-layer');
-
-      map.addLayer({
-        id: 'districts-outline',
-        type: 'line',
-        source: sourceId,
-        filter: filterLogic,
-        paint: {
-          'line-color': '#3772ff',
-          'line-width': selectedDistrict === "Все районы" ? 1 : 2,
-          'line-opacity': 0.5
-        }
-      }, 'hospitals-layer');
     };
 
-    updateDistrictLayer();
-  }, [selectedDistrict, districtsGeoJson, isLoading]);
+    if (map.isStyleLoaded()) initDistricts();
+    else map.once('idle', initDistricts);
+  }, [districtsGeoJson]);
 
   useEffect(() => {
     const styleId = 'hospital-popup-styles';
@@ -417,24 +412,51 @@ export default function HospitalMapView({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || isLoading) return;
 
-    const sourceId = "hospitals-source";
-    const layerId = "hospitals-layer";
+    const syncLayers = () => {
+      if (!map.isStyleLoaded()) return;
 
-    const updateMap = () => {
+      if (districtsGeoJson) {
+        const distSourceId = 'districts-source';
+        if (!map.getSource(distSourceId)) {
+          map.addSource(distSourceId, { type: 'geojson', data: districtsGeoJson });
+          
+          map.addLayer({
+            id: 'districts-fill',
+            type: 'fill',
+            source: distSourceId,
+            paint: { 'fill-color': '#3773ff', 'fill-opacity': 0.15 }
+          });
+          map.addLayer({
+            id: 'districts-outline',
+            type: 'line',
+            source: distSourceId,
+            paint: { 'line-color': '#3772ff', 'line-width': 2, 'line-opacity': 0.5 }
+          });
+        }
+
+        const distFilter = selectedDistrict === "Все районы" 
+          ? ["all"] 
+          : ["in", selectedDistrict, ["get", "name_ru"]];
+        
+        map.setFilter('districts-fill', distFilter);
+        map.setFilter('districts-outline', distFilter);
+        map.setPaintProperty('districts-fill', 'fill-opacity', selectedDistrict === "Все районы" ? 0.05 : 0.2);
+      }
+
+      const hospSourceId = "hospitals-source";
+      const hospLayerId = "hospitals-layer";
+
+      const validFacilities = facilities.filter(h => h.lng && h.lat && !isNaN(h.lng));
       const geojsonData = {
         type: "FeatureCollection",
-        features: facilities.map(h => ({
+        features: validFacilities.map(h => ({
           type: "Feature",
           properties: { ...h },
           geometry: { type: "Point", coordinates: [Number(h.lng), Number(h.lat)] }
         }))
       };
-
-      const filterLogic = (activeGeoLayers.includes("orgTypeGrid") && selectedOrgTypeForGrid)
-        ? ["==", ["get", "org_type"], selectedOrgTypeForGrid]
-        : undefined;
 
       const buildingColorLogic = [
         "case",
@@ -442,13 +464,12 @@ export default function HospitalMapView({
         ["in", "Аварийное", ["coalesce", ["get", "bld_tech"], ""]], "#B71C1C",
         ["to-boolean", ["coalesce", ["get", "bld_seismic"], false]], "#EF6C00",
         ["any",
-            ["in", "Ветхое", ["coalesce", ["get", "bld_tech"], ""]],
-            ["in", "Неудовлетворительное", ["coalesce", ["get", "bld_tech"], ""]]
+          ["in", "Ветхое", ["coalesce", ["get", "bld_tech"], ""]],
+          ["in", "Неудовлетворительное", ["coalesce", ["get", "bld_tech"], ""]]
         ], "#F9A825",
         ["in", "Исправное", ["coalesce", ["get", "bld_tech"], ""]], "#2E7D32",
         "#9e9e9e"
       ];
-
       const loadColorLogic = [
         "match", ["get", "occ_cat"],
         "over", "#7B0000",
@@ -459,17 +480,20 @@ export default function HospitalMapView({
         "vlow", "#9E9E9E",
         "#9E9E9E"
       ];
-
       const currentColorLogic = mapMode === "buildings" ? buildingColorLogic : loadColorLogic;
 
-      if (!map.getSource(sourceId)) {
-        map.addSource(sourceId, { type: "geojson", data: geojsonData });
+      const filterLogic = (activeGeoLayers.includes("orgTypeGrid") && selectedOrgTypeForGrid)
+        ? ["==", ["get", "org_type"], selectedOrgTypeForGrid]
+        : ["all"];
 
+      const source = map.getSource(hospSourceId);
+      if (!source) {
+        map.addSource(hospSourceId, { type: "geojson", data: geojsonData });
         map.addLayer({
-          id: layerId,
+          id: hospLayerId,
           type: "circle",
-          source: sourceId,
-          filter: filterLogic || ["all"],
+          source: hospSourceId,
+          filter: filterLogic,
           paint: {
             "circle-radius": [
               "max", 5, 
@@ -485,13 +509,11 @@ export default function HospitalMapView({
             "circle-opacity": 0.9,
           },
         });
-
-        map.on("click", layerId, async (e) => {
+        
+        map.on("click", hospLayerId, async (e) => { 
           const feature = e.features[0];
           const props = feature.properties;
-
           if (activePopupRef.current) activePopupRef.current.remove();
-
           const popup = new maplibregl.Popup({ offset: 25, closeButton: true, maxWidth: '400px' })
             .setLngLat(e.lngLat)
             .setHTML('<div style="padding: 20px; text-align:center;">Загрузка данных...</div>')
@@ -506,22 +528,24 @@ export default function HospitalMapView({
             popup.setHTML(buildHospitalPopup(props));
           }
         });
-
-        map.on("mouseenter", layerId, () => map.getCanvas().style.cursor = 'pointer');
-        map.on("mouseleave", layerId, () => map.getCanvas().style.cursor = '');
+        map.on("mouseenter", hospLayerId, () => map.getCanvas().style.cursor = 'pointer');
+        map.on("mouseleave", hospLayerId, () => map.getCanvas().style.cursor = '');
       } else {
-        if (map.getLayer(layerId)) {
-          map.getSource(sourceId).setData(geojsonData);
-          map.setPaintProperty(layerId, "circle-color", currentColorLogic);
-          map.setFilter(layerId, filterLogic || ["all"]);
-        }
+        source.setData(geojsonData);
+        map.setPaintProperty(hospLayerId, "circle-color", currentColorLogic);
+        map.setFilter(hospLayerId, filterLogic);
+      }
+
+      if (map.getLayer('districts-fill') && map.getLayer(hospLayerId)) {
+        map.moveLayer('districts-fill', hospLayerId);
+        map.moveLayer('districts-outline', hospLayerId);
       }
     };
 
-    if (map.isStyleLoaded()) updateMap();
-    else map.once('load', updateMap);
+    if (map.isStyleLoaded()) syncLayers();
+    else map.once('load', syncLayers);
 
-  }, [facilities, mapMode, isLoading, selectedOrgTypeForGrid, activeGeoLayers]);
+  }, [facilities, selectedDistrict, mapMode, isLoading, activeGeoLayers, selectedOrgTypeForGrid]);
 
   useEffect(() => {
     const map = mapRef.current;
