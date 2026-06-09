@@ -61,7 +61,7 @@ export default function Header({ setSelectedDistrict, selectedDistrict }) {
         <div className="flex h-14 w-full justify-between items-center px-2">
           <div className="flex items-center gap-3">
             <h1 className="text-sm sm:text-base font-bold text-[#1b1b1b] truncate max-w-[200px] md:max-w-none">
-              Анализ и карта потребности
+              Анализ и карта потребности в объектах здравоохранения
             </h1>
           </div>
 
