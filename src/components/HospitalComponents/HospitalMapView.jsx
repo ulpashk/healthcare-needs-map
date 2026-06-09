@@ -1,14 +1,42 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import maplibregl from 'maplibre-gl';
 import { useMapInitialization } from '../../hooks/useMapInitialization';
 import { HospitalService } from '../../services/hospitalApiService';
 import { MapControls } from '../general/MapControls';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { getMoSettings } from '../../constants/mo-config';
-import { getDistanceMeters, computeGridData, computeOrgTypeGrid, enrichZonesWithEverything } from '../../utils/hosp-map-func';
+import { computeGridData, computeOrgTypeGrid, enrichZonesWithEverything } from '../../utils/hosp-map-func';
 import { buildHospitalPopup, buildPlannedObjectPopupHTML, buildRefusalPopupHTML } from '../../utils/hosp-popups';
+
+// ─── helpers ────────────────────────────────────────────────────────────────
+
+/** Safely add a source only once */
+function ensureSource(map, id, data) {
+  if (!map.getSource(id)) {
+    map.addSource(id, { type: 'geojson', data });
+    return true; // created
+  }
+  map.getSource(id).setData(data);
+  return false; // updated
+}
+
+/** Safely set layer visibility */
+function setVisibility(map, layerId, visible) {
+  if (map.getLayer(layerId)) {
+    map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+  }
+}
+
+/** Move layerId before beforeId, only if both exist */
+function safeMoveLayer(map, layerId, beforeId) {
+  if (map.getLayer(layerId) && map.getLayer(beforeId)) {
+    map.moveLayer(layerId, beforeId);
+  }
+}
+
+// ─── component ──────────────────────────────────────────────────────────────
 
 export default function HospitalMapView({
   facilities = [],
@@ -23,111 +51,89 @@ export default function HospitalMapView({
   plannedObjects = null,
   refusalsData = [],
   recommendations = [],
-  geoAccessMode = "current", 
+  geoAccessMode = "current",
   focusedRefusal = null,
   selectedOrgTypeForGrid = null,
 }) {
   const mapContainer = useRef(null);
   const { mapRef, isLoading, zoomIn, zoomOut, resetView } = useMapInitialization(mapContainer);
   const activePopupRef = useRef(null);
+
+  // Track which heavy layers have finished rendering
+  const [geoLayersReady, setGeoLayersReady] = useState(false);
+  // Refs to detect when heavy DATA itself changes (not just config/flags)
+  const prevHeavyDataRef = useRef({ gridCells: null, plannedZones: null, plannedObjects: null, refusalsData: null });
   const [districtsGeoJson, setDistrictsGeoJson] = useState(null);
 
+  // Strip the city-level "г. Алматы" polygon — it covers the entire map area
+  // and causes a dark overlay on top of all district polygons.
+  const districtOnlyGeoJson = useMemo(() => {
+    if (!districtsGeoJson?.features) return null;
+    return {
+      ...districtsGeoJson,
+      features: districtsGeoJson.features.filter(
+        f => f.properties?.name_ru !== "г. Алматы"
+      )
+    };
+  }, [districtsGeoJson]);
+
+  // Keep stable ref to activePopupRef-opener so click handlers don't close over stale map
+  const popupOpenerRef = useRef(null);
+
+  // ── show loader while map initialises OR heavy data is being painted ──────
+  const showLoader = isLoading || !geoLayersReady;
+
+  // ── inject popup styles once ──────────────────────────────────────────────
+  useEffect(() => {
+    const styleId = 'hospital-popup-styles';
+    if (document.getElementById(styleId)) return;
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      .ml-card {
+        max-width: 320px; max-height: 480px; overflow-y: auto; 
+        border: 1px solid rgba(0,0,0,.08); border-radius: 10px; 
+        scrollbar-width: thin; background: #fff;
+        box-shadow: 0 6px 16px rgba(0,0,0,.06);
+        font-family: Inter, system-ui, -apple-system, sans-serif;
+      }
+      .ml-card::-webkit-scrollbar { width: 4px; }
+      .ml-card::-webkit-scrollbar-thumb { background: #ddd; border-radius: 10px; }
+      .ml-hd { padding: 12px 12px 8px; border-bottom: 1px solid #f0f0f0; }
+      .ml-ttl { margin: 0 0 6px; font-weight:600; font-size: 15px; line-height: 1.2; color: #1a202c; text-align: left; }
+      .ml-chip { border-radius: 999px; padding: 2px 8px; font-weight: 700; font-size: 10px; white-space: nowrap; display: inline-block; }
+      .ml-meta { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+      .ml-pill { background: #edf2f7; border-radius: 6px; padding: 2px 8px; font-size: 10px; color: #4a5568; font-weight: 600; }
+      .ml-bd { padding: 12px; }
+      .ml-warning-box { background: #fff5f2; border: 1px solid #ffccbc; padding: 6px 10px; border-radius: 8px; font-size: 11px; color: #d32f2f; margin-bottom: 12px; text-align: left;}
+      .ml-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; margin: 4px 0; color: #4a5568; }
+      .ml-bar { height: 6px; width: 100%; background: #f7fafc; border-radius: 999px; overflow: hidden; margin-top: 4px; border: 1px solid #edf2f7; }
+      .ml-bar i { display: block; height: 100%; transition: width 0.5s ease; }
+      .ml-section-title { font-weight: 800; font-size: 11px; margin: 16px 0 8px; color: #2d3748; text-transform: uppercase; letter-spacing: 0.025em; border-bottom: 1px solid #edf2f7; padding-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+      .ml-kpi { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+      .ml-box { background: #f8fafc; border-radius: 8px; padding: 8px; border: 1px solid #f1f5f9; }
+      .ml-cap { font-size: 10px; color: #718096; text-align: left; }
+      .ml-val { font-weight: 700; font-size: 13px; color: #1a202c; text-align: left;}
+      .ml-profiles { max-height: 120px; overflow-y: auto; margin-top: 4px; padding-right: 4px; }
+      .ml-bld-wrapper { max-height: 150px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px; margin-top: 4px; }
+      .ml-table { width: 100%; font-size: 10px; border-collapse: collapse; }
+      .ml-table th { text-align: left; background: #f8fafc; padding: 6px 8px; color: #718096; position: sticky; top: 0; }
+      .ml-table td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; }
+    `;
+    document.head.appendChild(style);
+  }, []);
+
+  // ── fetch districts GeoJSON once ──────────────────────────────────────────
   useEffect(() => {
     fetch("https://admin.smartalmaty.kz/api/v1/address/districts/?city=1")
       .then(res => res.json())
-      .then(data => setDistrictsGeoJson(data));
+      .then(data => setDistrictsGeoJson(data))
+      .catch(err => console.error("Districts fetch error:", err));
   }, []);
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !districtsGeoJson || !districtsGeoJson.features) return;
-
-    const initDistricts = () => {
-      if (!map.isStyleLoaded()) return;
-      const sourceId = 'districts-source';
-
-      if (!map.getSource(sourceId)) {
-        map.addSource(sourceId, { type: 'geojson', data: districtsGeoJson });
-
-        const beforeId = map.getLayer('hospitals-layer') ? 'hospitals-layer' : undefined;
-
-        map.addLayer({
-          id: 'districts-fill',
-          type: 'fill',
-          source: sourceId,
-          filter: ["all"],
-          paint: {
-            'fill-color': '#3773ff3a',
-            'fill-opacity': 0.15
-          }
-        }, beforeId);
-
-        map.addLayer({
-          id: 'districts-outline',
-          type: 'line',
-          source: sourceId,
-          filter: ["all"],
-          paint: {
-            'line-color': '#3772ff',
-            'line-width': 2,
-            'line-opacity': 0.5
-          }
-        }, beforeId);
-      }
-    };
-
-    if (map.isStyleLoaded()) initDistricts();
-    else map.once('idle', initDistricts);
-  }, [districtsGeoJson]);
-
-  useEffect(() => {
-    const styleId = 'hospital-popup-styles';
-    if (!document.getElementById(styleId)) {
-      const style = document.createElement('style');
-      style.id = styleId;
-      style.textContent = `
-        .ml-card {
-          max-width: 320px; max-height: 480px; overflow-y: auto; 
-          border: 1px solid rgba(0,0,0,.08); border-radius: 10px; 
-          scrollbar-width: thin; background: #fff;
-          box-shadow: 0 6px 16px rgba(0,0,0,.06);
-          font-family: Inter, system-ui, -apple-system, sans-serif;
-        }
-        .ml-card::-webkit-scrollbar { width: 4px; }
-        .ml-card::-webkit-scrollbar-thumb { background: #ddd; border-radius: 10px; }
-        
-        .ml-hd { padding: 12px 12px 8px; border-bottom: 1px solid #f0f0f0; }
-        .ml-ttl { margin: 0 0 6px; font-weight:600; font-size: 15px; line-height: 1.2; color: #1a202c; text-align: left; }
-        
-        .ml-chip { border-radius: 999px; padding: 2px 8px; font-weight: 700; font-size: 10px; white-space: nowrap; display: inline-block; }
-        .ml-meta { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-        .ml-pill { background: #edf2f7; border-radius: 6px; padding: 2px 8px; font-size: 10px; color: #4a5568; font-weight: 600; }
-        
-        .ml-bd { padding: 12px; }
-        .ml-warning-box { background: #fff5f2; border: 1px solid #ffccbc; padding: 6px 10px; border-radius: 8px; font-size: 11px; color: #d32f2f; margin-bottom: 12px; text-align: left;}
-        
-        .ml-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; margin: 4px 0; color: #4a5568; }
-        .ml-bar { height: 6px; width: 100%; background: #f7fafc; border-radius: 999px; overflow: hidden; margin-top: 4px; border: 1px solid #edf2f7; }
-        .ml-bar i { display: block; height: 100%; transition: width 0.5s ease; }
-        
-        .ml-section-title { font-weight: 800; font-size: 11px; margin: 16px 0 8px; color: #2d3748; text-transform: uppercase; letter-spacing: 0.025em; border-bottom: 1px solid #edf2f7; padding-bottom: 4px; display: flex; align-items: center; gap: 6px; }
-        
-        .ml-kpi { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-        .ml-box { background: #f8fafc; border-radius: 8px; padding: 8px; border: 1px solid #f1f5f9; }
-        .ml-cap { font-size: 10px; color: #718096; text-align: left; }
-        .ml-val { font-weight: 700; font-size: 13px; color: #1a202c; text-align: left;}
-        
-        .ml-profiles { max-height: 120px; overflow-y: auto; margin-top: 4px; padding-right: 4px; }
-        .ml-bld-wrapper { max-height: 150px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px; margin-top: 4px; }
-        
-        .ml-table { width: 100%; font-size: 10px; border-collapse: collapse; }
-        .ml-table th { text-align: left; background: #f8fafc; padding: 6px 8px; color: #718096; position: sticky; top: 0; }
-        .ml-table td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; }
-      `;
-      document.head.appendChild(style);
-    }
-  }, []);
-
+  // ── EFFECT 1: hospitals + districts base layers ───────────────────────────
+  // Depends on: facilities, selectedDistrict, mapMode, districtsGeoJson, isLoading,
+  //             activeGeoLayers, selectedOrgTypeForGrid
   useEffect(() => {
     const map = mapRef.current;
     if (!map || isLoading) return;
@@ -135,34 +141,46 @@ export default function HospitalMapView({
     const syncLayers = () => {
       if (!map.isStyleLoaded()) return;
 
-      if (districtsGeoJson) {
+      // ── districts ──
+      if (districtOnlyGeoJson?.features) {
         const distSourceId = 'districts-source';
-        if (!map.getSource(distSourceId)) {
-          map.addSource(distSourceId, { type: 'geojson', data: districtsGeoJson });
-          
+        const created = ensureSource(map, distSourceId, districtOnlyGeoJson);
+
+        if (created) {
+          // Insert districts BELOW hospitals so hospitals always appear on top.
+          // We don't know if hospitals-layer exists yet, so we add without beforeId
+          // and moveLayer later in this same function.
           map.addLayer({
             id: 'districts-fill',
             type: 'fill',
             source: distSourceId,
-            paint: { 'fill-color': '#3773ff', 'fill-opacity': 0.15 }
+            filter: ["all"],
+            paint: { 'fill-color': '#3773ff', 'fill-opacity': 0 }
           });
           map.addLayer({
             id: 'districts-outline',
             type: 'line',
             source: distSourceId,
+            filter: ["all"],
             paint: { 'line-color': '#3772ff', 'line-width': 2, 'line-opacity': 0.5 }
           });
         }
 
-        const distFilter = selectedDistrict === "Все районы" 
-          ? ["all"] 
+        const distFilter = selectedDistrict === "Все районы"
+          ? ["all"]
           : ["in", selectedDistrict, ["get", "name_ru"]];
-        
-        map.setFilter('districts-fill', distFilter);
-        map.setFilter('districts-outline', distFilter);
-        map.setPaintProperty('districts-fill', 'fill-opacity', selectedDistrict === "Все районы" ? 0.05 : 0.2);
+
+        // districts-fill is hidden by default; only shown in zonal mode
+        if (map.getLayer('districts-fill')) {
+          map.setFilter('districts-fill', distFilter);
+          // Keep opacity at 0 unless zonal mode sets it (handled in EFFECT 2)
+        }
+        if (map.getLayer('districts-outline')) {
+          map.setFilter('districts-outline', distFilter);
+        }
       }
 
+      // ── hospitals ──
       const hospSourceId = "hospitals-source";
       const hospLayerId = "hospitals-layer";
 
@@ -204,9 +222,9 @@ export default function HospitalMapView({
         ? ["==", ["get", "org_type"], selectedOrgTypeForGrid]
         : ["all"];
 
-      const source = map.getSource(hospSourceId);
-      if (!source) {
-        map.addSource(hospSourceId, { type: "geojson", data: geojsonData });
+      const hospCreated = ensureSource(map, hospSourceId, geojsonData);
+
+      if (hospCreated) {
         map.addLayer({
           id: hospLayerId,
           type: "circle",
@@ -214,7 +232,7 @@ export default function HospitalMapView({
           filter: filterLogic,
           paint: {
             "circle-radius": [
-              "max", 5, 
+              "max", 5,
               ["min", 28, ["+", 7, ["*", ["sqrt", ["get", "total_beds"]], 0.45]]]
             ],
             "circle-color": currentColorLogic,
@@ -227,8 +245,9 @@ export default function HospitalMapView({
             "circle-opacity": 0.9,
           },
         });
-        
-        map.on("click", hospLayerId, async (e) => { 
+
+        // Click handler registered only once on layer creation
+        map.on("click", hospLayerId, async (e) => {
           const feature = e.features[0];
           const props = feature.properties;
           if (activePopupRef.current) activePopupRef.current.remove();
@@ -236,84 +255,106 @@ export default function HospitalMapView({
             .setLngLat(e.lngLat)
             .setHTML('<div style="padding: 20px; text-align:center;">Загрузка данных...</div>')
             .addTo(map);
-          
           activePopupRef.current = popup;
-
           try {
             const detail = await HospitalService.getHospitalDetail(props.unified_id);
             popup.setHTML(buildHospitalPopup(detail));
-          } catch (err) {
+          } catch {
             popup.setHTML(buildHospitalPopup(props));
           }
         });
         map.on("mouseenter", hospLayerId, () => map.getCanvas().style.cursor = 'pointer');
         map.on("mouseleave", hospLayerId, () => map.getCanvas().style.cursor = '');
       } else {
-        source.setData(geojsonData);
+        // Source already exists — just update paint + filter
         map.setPaintProperty(hospLayerId, "circle-color", currentColorLogic);
         map.setFilter(hospLayerId, filterLogic);
       }
 
-      if (map.getLayer('districts-fill') && map.getLayer(hospLayerId)) {
-        map.moveLayer('districts-fill', hospLayerId);
-        map.moveLayer('districts-outline', hospLayerId);
-      }
+      // Districts must always be below hospitals
+      safeMoveLayer(map, 'districts-fill', hospLayerId);
+      safeMoveLayer(map, 'districts-outline', hospLayerId);
     };
 
     if (map.isStyleLoaded()) syncLayers();
     else map.once('load', syncLayers);
 
-  }, [facilities, selectedDistrict, mapMode, isLoading, activeGeoLayers, selectedOrgTypeForGrid]);
+  }, [facilities, selectedDistrict, mapMode, isLoading, districtOnlyGeoJson, activeGeoLayers, selectedOrgTypeForGrid]);
 
+  // ── EFFECT 2: geo overlay layers (grid, zones, refusals, planned) ─────────
+  // Signals geoLayersReady to hide the loader once painting is done.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || isLoading || !gridCells) return;
+    if (!map || isLoading) return;
+
+    // If no heavy layers are requested, mark as ready immediately
+    const heavyLayersActive =
+      activeGeoLayers.includes("grid") ||
+      (activeGeoLayers.includes("orgTypeGrid") && selectedOrgTypeForGrid) ||
+      activeGeoLayers.includes("zones") ||
+      activeGeoLayers.includes("refusals") ||
+      (geoAccessMode === "planned" && plannedObjects);
+
+    if (!heavyLayersActive) {
+      setGeoLayersReady(true);
+      return;
+    }
+
+    // Reset ready flag ONLY when the heavy data itself is new (not on every config change)
+    const prev = prevHeavyDataRef.current;
+    const dataChanged =
+      prev.gridCells !== gridCells ||
+      prev.plannedZones !== plannedZones ||
+      prev.plannedObjects !== plannedObjects ||
+      prev.refusalsData !== refusalsData;
+
+    if (dataChanged) {
+      prevHeavyDataRef.current = { gridCells, plannedZones, plannedObjects, refusalsData };
+      setGeoLayersReady(false);
+    }
 
     const updateGeoLayers = () => {
-      if (!map.isStyleLoaded() || !map.getLayer("hospitals-layer")) return;
+      if (!map.isStyleLoaded() || !map.getLayer("hospitals-layer")) {
+        // hospitals-layer not yet present — wait for idle and retry
+        map.once('idle', updateGeoLayers);
+        return;
+      }
 
       const isTypeActive = activeGeoLayers.includes("orgTypeGrid") && selectedOrgTypeForGrid;
       const isGeneralGridActive = activeGeoLayers.includes("grid");
       const settings = selectedOrgTypeForGrid ? getMoSettings(selectedOrgTypeForGrid) : null;
 
+      // ── grid ──────────────────────────────────────────────────────────────
       const sourceId = "grid-source";
       const layerId = "grid-layer";
 
       let gridData = null;
       let shouldShowGrid = false;
 
-      if (isGeneralGridActive) {
+      if (isGeneralGridActive && gridCells) {
         shouldShowGrid = true;
-        
         let points = facilities.map(f => ({ lat: f.lat, lng: f.lng }));
-
         if (geoAccessMode === "planned" && plannedObjects?.features) {
           plannedObjects.features.forEach(f => {
-            if (f.geometry && f.geometry.coordinates) {
-              points.push({ 
-                lat: f.geometry.coordinates[1], 
-                lng: f.geometry.coordinates[0] 
-              });
+            if (f.geometry?.coordinates) {
+              points.push({ lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] });
             }
           });
         }
-
         gridData = computeGridData(gridCells, points);
-      } 
-      else if (isTypeActive && settings?.mode === "territorial") {
+      } else if (isTypeActive && settings?.mode === "territorial" && gridCells) {
         shouldShowGrid = true;
         const targets = facilities
           .filter(f => f.org_type === selectedOrgTypeForGrid)
           .map(f => ({ lat: f.lat, lng: f.lng }));
-        
         if (targets.length > 0) {
           gridData = computeOrgTypeGrid(gridCells, targets, settings.near, settings.far);
         }
       }
 
       if (shouldShowGrid && gridData) {
-        if (!map.getSource(sourceId)) {
-          map.addSource(sourceId, { type: "geojson", data: gridData });
+        const created = ensureSource(map, sourceId, gridData);
+        if (created) {
           map.addLayer({
             id: layerId,
             type: "fill",
@@ -324,36 +365,90 @@ export default function HospitalMapView({
             }
           }, "hospitals-layer");
         } else {
-          map.getSource(sourceId).setData(gridData);
-          map.setLayoutProperty(layerId, 'visibility', 'visible');
+          setVisibility(map, layerId, true);
         }
       } else {
-        if (map.getLayer(layerId)) map.setLayoutProperty(layerId, 'visibility', 'none');
+        setVisibility(map, layerId, false);
       }
 
+      // ── districts colouring for zonal org-type mode ───────────────────────
       if (isTypeActive && settings?.mode === "zonal") {
-        const districtsWithMO = Array.from(new Set(
-          facilities
-            .filter(f => f.org_type === selectedOrgTypeForGrid)
-            .map(f => f.district.replace(" район", "").trim())
-        ));
+        // Normalize to bare name (without " район") for consistent comparison.
+        // facilities.district = "Алмалинский район"  → strip → "Алмалинский"
+        // plannedObjects.district = "Турксибский"    → already bare
+        // districts name_ru = "Алатауский район"     → we strip in the expression below
+        const normalize = (s) => s.replace(/\s*район$/i, "").trim();
+
+        const districtsFromFacilities = facilities
+          .filter(f => f.org_type === selectedOrgTypeForGrid)
+          .map(f => normalize(f.district));
+
+        const districtsFromPlanned = (plannedObjects?.features || [])
+          .filter(f => f.properties?.obj_type && selectedOrgTypeForGrid
+            ? f.properties.obj_type === selectedOrgTypeForGrid
+            : true)
+          .map(f => normalize(f.properties?.district || ""))
+          .filter(Boolean);
+
+        // Filter out invalid district values like "Не указан"
+        const validDistrictNames = new Set(
+          (districtsGeoJson?.features || []).map(f => f.properties?.name_ru).filter(Boolean)
+        );
+
+        const districtsWithMO = Array.from(new Set([...districtsFromFacilities, ...districtsFromPlanned]))
+          .map(d => d + " район")
+          .filter(d => validDistrictNames.has(d)); // only keep names that actually exist in GeoJSON
+
+        // Inject "has_mo" property into each district feature so MapLibre can use it
+        // This avoids ["match"] against a potentially large literal array and
+        // lets us use fill-opacity per-feature cleanly
+        if (districtsGeoJson?.features && map.getSource("districts-source")) {
+          const enriched = {
+            ...districtOnlyGeoJson,
+            features: districtOnlyGeoJson.features.map(f => ({
+              ...f,
+              properties: {
+                ...f.properties,
+                zonal_has_mo: districtsWithMO.includes(f.properties?.name_ru) ? 1 : 0
+              }
+            }))
+          };
+          map.getSource("districts-source").setData(enriched);
+        }
+
         if (map.getLayer("districts-fill")) {
           map.setPaintProperty("districts-fill", "fill-color", [
-            "case", ["in", ["get", "name_ru"], ["literal", districtsWithMO]], "#43A047", "#E53935"
+            "case", ["==", ["get", "zonal_has_mo"], 1], "#388E3C", "#D32F2F"
           ]);
-          map.setPaintProperty("districts-fill", "fill-opacity", 0.4);
+          map.setPaintProperty("districts-fill", "fill-opacity", 0.75);
         }
-      } else if (!shouldShowGrid) {
+        // In zonal mode use a neutral dark outline so it doesn't bleed color into the fill
+        if (map.getLayer("districts-outline")) {
+          map.setPaintProperty("districts-outline", "line-color", "#333333");
+          map.setPaintProperty("districts-outline", "line-opacity", 0.6);
+          map.setPaintProperty("districts-outline", "line-width", 1.5);
+        }
+      } else {
+        // Restore clean source (strip zonal_has_mo) and hide fill
+        if (districtsGeoJson?.features && map.getSource("districts-source")) {
+          map.getSource("districts-source").setData(districtOnlyGeoJson);
+        }
         if (map.getLayer("districts-fill")) {
-          map.setPaintProperty("districts-fill", "fill-color", "#3772ff");
-          map.setPaintProperty("districts-fill", "fill-opacity", 0.05);
+          map.setPaintProperty("districts-fill", "fill-opacity", 0);
+        }
+        // Restore default outline style
+        if (map.getLayer("districts-outline")) {
+          map.setPaintProperty("districts-outline", "line-color", "#3772ff");
+          map.setPaintProperty("districts-outline", "line-opacity", 0.5);
+          map.setPaintProperty("districts-outline", "line-width", 2);
         }
       }
 
+      // ── planned dots ──────────────────────────────────────────────────────
       const showPlannedDots = geoAccessMode === "planned" && plannedObjects;
       if (showPlannedDots) {
-        if (!map.getSource("planned-dots-source")) {
-          map.addSource("planned-dots-source", { type: "geojson", data: plannedObjects });
+        const created = ensureSource(map, "planned-dots-source", plannedObjects);
+        if (created) {
           map.addLayer({
             id: "planned-dots-layer",
             type: "circle",
@@ -366,40 +461,30 @@ export default function HospitalMapView({
               "circle-opacity": 1
             }
           });
-
           map.on("click", "planned-dots-layer", (e) => {
             if (!e.features?.length) return;
             const props = e.features[0].properties;
-
             if (activePopupRef.current) activePopupRef.current.remove();
-
             const popup = new maplibregl.Popup({ offset: 15, closeButton: true, maxWidth: '400px' })
               .setLngLat(e.lngLat)
               .setHTML(buildPlannedObjectPopupHTML(props))
               .addTo(map);
-
             activePopupRef.current = popup;
           });
-
-          map.on("mouseenter", "planned-dots-layer", () => {
-            map.getCanvas().style.cursor = 'pointer';
-          });
-          map.on("mouseleave", "planned-dots-layer", () => {
-            map.getCanvas().style.cursor = '';
-          });
-
+          map.on("mouseenter", "planned-dots-layer", () => map.getCanvas().style.cursor = 'pointer');
+          map.on("mouseleave", "planned-dots-layer", () => map.getCanvas().style.cursor = '');
         } else {
-          map.getSource("planned-dots-source").setData(plannedObjects);
-          map.setLayoutProperty("planned-dots-layer", "visibility", "visible");
+          setVisibility(map, "planned-dots-layer", true);
         }
-      } else if (map.getLayer("planned-dots-layer")) {
-        map.setLayoutProperty("planned-dots-layer", "visibility", "none");
+      } else {
+        setVisibility(map, "planned-dots-layer", false);
       }
 
+      // ── zones ─────────────────────────────────────────────────────────────
       if (activeGeoLayers.includes("zones") && plannedZones) {
         const enrichedData = enrichZonesWithEverything(plannedZones, plannedObjects, recommendations);
-        if (!map.getSource("zones-source")) {
-          map.addSource("zones-source", { type: "geojson", data: enrichedData });
+        const created = ensureSource(map, "zones-source", enrichedData);
+        if (created) {
           map.addLayer({
             id: "zones-layer",
             type: "fill",
@@ -436,11 +521,9 @@ export default function HospitalMapView({
           map.on("click", "zones-layer", (e) => {
             if (!e.features?.length) return;
             const p = e.features[0].properties;
-            
             if (activePopupRef.current) activePopupRef.current.remove();
 
             let html = `<div style="padding: 10px; font-family: sans-serif; min-width:240px; text-align: left;">`;
-            
             if (String(p.is_planned) === "true") {
               html += `
                 <b style="color: #2E7D32; font-size: 13px;">✅ ЗАПЛАНИРОВАНА БОЛЬНИЦА</b>
@@ -468,23 +551,20 @@ export default function HospitalMapView({
               .setLngLat(e.lngLat)
               .setHTML(html)
               .addTo(map);
-
             activePopupRef.current = popup;
           });
-
           map.on("mouseenter", "zones-layer", () => map.getCanvas().style.cursor = 'pointer');
           map.on("mouseleave", "zones-layer", () => map.getCanvas().style.cursor = '');
-
         } else {
-          map.getSource("zones-source").setData(enrichedData);
-          map.setLayoutProperty("zones-layer", "visibility", "visible");
-          map.setLayoutProperty("zones-line-layer", "visibility", "visible");
+          setVisibility(map, "zones-layer", true);
+          setVisibility(map, "zones-line-layer", true);
         }
-      } else if (map.getLayer("zones-layer")) {
-        map.setLayoutProperty("zones-layer", "visibility", "none");
-        map.setLayoutProperty("zones-line-layer", "visibility", "none");
+      } else {
+        setVisibility(map, "zones-layer", false);
+        setVisibility(map, "zones-line-layer", false);
       }
 
+      // ── refusals ──────────────────────────────────────────────────────────
       if (activeGeoLayers.includes("refusals") && refusalsData.length > 0) {
         const refusalGeojson = {
           type: "FeatureCollection",
@@ -494,9 +574,8 @@ export default function HospitalMapView({
             properties: { ...r }
           }))
         };
-
-        if (!map.getSource("refusals-source")) {
-          map.addSource("refusals-source", { type: "geojson", data: refusalGeojson });
+        const created = ensureSource(map, "refusals-source", refusalGeojson);
+        if (created) {
           map.addLayer({
             id: "refusals-layer",
             type: "circle",
@@ -504,7 +583,7 @@ export default function HospitalMapView({
             paint: {
               "circle-radius": [
                 "interpolate", ["linear"], ["get", "hospitalization_denied"],
-                0, 5, 
+                0, 5,
                 100, 20
               ],
               "circle-color": "#dc2626",
@@ -516,46 +595,44 @@ export default function HospitalMapView({
           map.on("click", "refusals-layer", (e) => {
             if (!e.features?.length) return;
             const props = e.features[0].properties;
-
             if (activePopupRef.current) activePopupRef.current.remove();
-
             const popup = new maplibregl.Popup({ offset: 15, closeButton: true, maxWidth: '300px' })
               .setLngLat(e.lngLat)
               .setHTML(buildRefusalPopupHTML(props))
               .addTo(map);
-
             activePopupRef.current = popup;
           });
-
-          map.on("mouseenter", "refusals-layer", () => {
-            map.getCanvas().style.cursor = 'pointer';
-          });
-          map.on("mouseleave", "refusals-layer", () => {
-            map.getCanvas().style.cursor = '';
-          });
+          map.on("mouseenter", "refusals-layer", () => map.getCanvas().style.cursor = 'pointer');
+          map.on("mouseleave", "refusals-layer", () => map.getCanvas().style.cursor = '');
         } else {
-          map.getSource("refusals-source").setData(refusalGeojson);
-          map.setLayoutProperty("refusals-layer", "visibility", "visible");
+          setVisibility(map, "refusals-layer", true);
         }
-      } else if (map.getLayer("refusals-layer")) {
-        map.setLayoutProperty("refusals-layer", "visibility", "none");
+      } else {
+        setVisibility(map, "refusals-layer", false);
       }
 
-      if (map.getLayer("grid-layer") && map.getLayer("zones-layer")) {
-        map.moveLayer("grid-layer", "zones-layer");
-      }
-      if (map.getLayer("zones-layer") && map.getLayer("hospitals-layer")) {
-        map.moveLayer("zones-layer", "hospitals-layer");
-      }
+      // ── enforce z-order: grid < zones < hospitals ─────────────────────────
+      safeMoveLayer(map, "grid-layer", "zones-layer");
+      safeMoveLayer(map, "zones-layer", "hospitals-layer");
+      safeMoveLayer(map, "zones-line-layer", "hospitals-layer");
+
+      // Signal that all heavy geo layers are painted
+      setGeoLayersReady(true);
     };
 
-    if (map.isStyleLoaded()) updateGeoLayers();
-    else map.once('idle', updateGeoLayers);
+    if (map.isStyleLoaded()) {
+      updateGeoLayers();
+    } else {
+      map.once('idle', updateGeoLayers);
+    }
 
-    const timer = setTimeout(updateGeoLayers, 50); 
-    return () => clearTimeout(timer);
-  }, [activeGeoLayers, gridCells, plannedZones, refusalsData, plannedObjects, facilities, selectedOrgTypeForGrid, geoAccessMode, isLoading]);
-  
+  }, [
+    activeGeoLayers, gridCells, plannedZones, refusalsData,
+    plannedObjects, facilities, selectedOrgTypeForGrid,
+    geoAccessMode, isLoading, recommendations
+  ]);
+
+  // ── EFFECT 3: seismic layer ───────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -568,8 +645,8 @@ export default function HospitalMapView({
         map.once('idle', updateSeismic);
         return;
       }
-      
-      if (!showSeismicGrid || !seismicData || seismicData.length === 0) {
+
+      if (!showSeismicGrid || !seismicData?.length) {
         if (map.getLayer(layerId)) map.removeLayer(layerId);
         if (map.getSource(sourceId)) map.removeSource(sourceId);
         return;
@@ -584,10 +661,8 @@ export default function HospitalMapView({
         }))
       };
 
-      if (map.getSource(sourceId)) {
-        map.getSource(sourceId).setData(geojson);
-      } else {
-        map.addSource(sourceId, { type: "geojson", data: geojson });
+      const created = ensureSource(map, sourceId, geojson);
+      if (created) {
         map.addLayer({
           id: layerId,
           type: "circle",
@@ -596,76 +671,60 @@ export default function HospitalMapView({
             "circle-radius": ["+", 8, ["*", ["get", "seismic_score"], 24]],
             "circle-color": [
               "step", ["get", "seismic_score"],
-              "#FDD835", 0.4, 
-              "#EF6C00", 0.7, 
+              "#FDD835", 0.4,
+              "#EF6C00", 0.7,
               "#B71C1C"
             ],
             "circle-stroke-width": 2,
             "circle-stroke-color": [
               "step", ["get", "seismic_score"],
-              "#FDD835", 0.4, 
-              "#EF6C00", 0.7, 
+              "#FDD835", 0.4,
+              "#EF6C00", 0.7,
               "#B71C1C"
             ],
             "circle-opacity": 0.18,
             "circle-stroke-opacity": 0.7
           }
         });
-
-        if (map.getLayer("hospitals-layer")) {
-          map.moveLayer(layerId, "hospitals-layer");
-        }
+        safeMoveLayer(map, layerId, "hospitals-layer");
       }
     };
 
     updateSeismic();
   }, [seismicData, showSeismicGrid, isLoading]);
 
+  // ── EFFECT 4: focus on hospital ───────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !focusedHospitalId) return;
 
     const hospital = facilities.find(f => f.unified_id === focusedHospitalId);
-    if (hospital) {
-      map.flyTo({
-        center: [hospital.lng, hospital.lat],
-        zoom: 15,
-        essential: true
+    if (!hospital) return;
+
+    map.flyTo({ center: [hospital.lng, hospital.lat], zoom: 15, essential: true });
+
+    if (activePopupRef.current) activePopupRef.current.remove();
+    const popup = new maplibregl.Popup({ offset: 15, closeButton: true, maxWidth: '400px' })
+      .setLngLat([hospital.lng, hospital.lat])
+      .setHTML('<div style="padding: 20px; text-align:center;">Загрузка детальных данных...</div>')
+      .addTo(map);
+    activePopupRef.current = popup;
+
+    HospitalService.getHospitalDetail(focusedHospitalId)
+      .then(detailData => {
+        if (activePopupRef.current === popup) popup.setHTML(buildHospitalPopup(detailData));
+      })
+      .catch(() => {
+        if (activePopupRef.current === popup) popup.setHTML(buildHospitalPopup(hospital));
       });
-
-      if (activePopupRef.current) activePopupRef.current.remove();
-      
-      const popup = new maplibregl.Popup({ offset: 15, closeButton: true, maxWidth: '400px' })
-        .setLngLat([hospital.lng, hospital.lat])
-        .setHTML('<div style="padding: 20px; text-align:center;">Загрузка детальных данных...</div>')
-        .addTo(map);
-        
-      activePopupRef.current = popup;
-
-      const loadDetails = async () => {
-        try {
-          const detailData = await HospitalService.getHospitalDetail(focusedHospitalId);
-          if (activePopupRef.current === popup) {
-            popup.setHTML(buildHospitalPopup(detailData));
-          }
-        } catch (err) {
-          console.error("Ошибка загрузки деталей при фокусе:", err);
-          if (activePopupRef.current === popup) {
-            popup.setHTML(buildHospitalPopup(hospital));
-          }
-        }
-      };
-      loadDetails();
-    }
   }, [focusedHospitalId, facilities]);
 
+  // ── EFFECT 5: focus on refusal ────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !focusedRefusal || !focusedRefusal.latitude) return;
+    if (!map || !focusedRefusal?.latitude) return;
 
-    if (activePopupRef.current) {
-      activePopupRef.current.remove();
-    }
+    if (activePopupRef.current) activePopupRef.current.remove();
 
     map.flyTo({
       center: [focusedRefusal.longitude, focusedRefusal.latitude],
@@ -675,19 +734,18 @@ export default function HospitalMapView({
     });
 
     const popup = new maplibregl.Popup({ offset: 15, closeButton: true, maxWidth: '300px' })
-    .setLngLat([focusedRefusal.longitude, focusedRefusal.latitude])
-    .setHTML(buildRefusalPopupHTML(focusedRefusal))
-    .addTo(map);
-
+      .setLngLat([focusedRefusal.longitude, focusedRefusal.latitude])
+      .setHTML(buildRefusalPopupHTML(focusedRefusal))
+      .addTo(map);
     activePopupRef.current = popup;
-
   }, [focusedRefusal]);
 
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="relative w-full h-full">
       <MapControls onZoomIn={zoomIn} onZoomOut={zoomOut} onReset={resetView} />
       <div ref={mapContainer} className="w-full h-full" />
-      {isLoading && (
+      {showLoader && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-sm z-50">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
