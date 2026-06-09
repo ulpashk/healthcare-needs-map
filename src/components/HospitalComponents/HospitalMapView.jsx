@@ -10,33 +10,27 @@ import { getMoSettings } from '../../constants/mo-config';
 import { computeGridData, computeOrgTypeGrid, enrichZonesWithEverything } from '../../utils/hosp-map-func';
 import { buildHospitalPopup, buildPlannedObjectPopupHTML, buildRefusalPopupHTML } from '../../utils/hosp-popups';
 
-// ─── helpers ────────────────────────────────────────────────────────────────
-
-/** Safely add a source only once */
 function ensureSource(map, id, data) {
   if (!map.getSource(id)) {
     map.addSource(id, { type: 'geojson', data });
-    return true; // created
+    return true;
   }
   map.getSource(id).setData(data);
-  return false; // updated
+  return false;
 }
 
-/** Safely set layer visibility */
 function setVisibility(map, layerId, visible) {
   if (map.getLayer(layerId)) {
     map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
   }
 }
 
-/** Move layerId before beforeId, only if both exist */
 function safeMoveLayer(map, layerId, beforeId) {
   if (map.getLayer(layerId) && map.getLayer(beforeId)) {
     map.moveLayer(layerId, beforeId);
   }
 }
 
-// ─── component ──────────────────────────────────────────────────────────────
 
 export default function HospitalMapView({
   facilities = [],
@@ -59,14 +53,10 @@ export default function HospitalMapView({
   const { mapRef, isLoading, zoomIn, zoomOut, resetView } = useMapInitialization(mapContainer);
   const activePopupRef = useRef(null);
 
-  // Track which heavy layers have finished rendering
   const [geoLayersReady, setGeoLayersReady] = useState(false);
-  // Refs to detect when heavy DATA itself changes (not just config/flags)
   const prevHeavyDataRef = useRef({ gridCells: null, plannedZones: null, plannedObjects: null, refusalsData: null });
   const [districtsGeoJson, setDistrictsGeoJson] = useState(null);
 
-  // Strip the city-level "г. Алматы" polygon — it covers the entire map area
-  // and causes a dark overlay on top of all district polygons.
   const districtOnlyGeoJson = useMemo(() => {
     if (!districtsGeoJson?.features) return null;
     return {
@@ -77,13 +67,10 @@ export default function HospitalMapView({
     };
   }, [districtsGeoJson]);
 
-  // Keep stable ref to activePopupRef-opener so click handlers don't close over stale map
   const popupOpenerRef = useRef(null);
 
-  // ── show loader while map initialises OR heavy data is being painted ──────
   const showLoader = isLoading || !geoLayersReady;
 
-  // ── inject popup styles once ──────────────────────────────────────────────
   useEffect(() => {
     const styleId = 'hospital-popup-styles';
     if (document.getElementById(styleId)) return;
@@ -123,7 +110,6 @@ export default function HospitalMapView({
     document.head.appendChild(style);
   }, []);
 
-  // ── fetch districts GeoJSON once ──────────────────────────────────────────
   useEffect(() => {
     fetch("https://admin.smartalmaty.kz/api/v1/address/districts/?city=1")
       .then(res => res.json())
@@ -131,9 +117,6 @@ export default function HospitalMapView({
       .catch(err => console.error("Districts fetch error:", err));
   }, []);
 
-  // ── EFFECT 1: hospitals + districts base layers ───────────────────────────
-  // Depends on: facilities, selectedDistrict, mapMode, districtsGeoJson, isLoading,
-  //             activeGeoLayers, selectedOrgTypeForGrid
   useEffect(() => {
     const map = mapRef.current;
     if (!map || isLoading) return;
@@ -141,15 +124,11 @@ export default function HospitalMapView({
     const syncLayers = () => {
       if (!map.isStyleLoaded()) return;
 
-      // ── districts ──
       if (districtOnlyGeoJson?.features) {
         const distSourceId = 'districts-source';
         const created = ensureSource(map, distSourceId, districtOnlyGeoJson);
 
         if (created) {
-          // Insert districts BELOW hospitals so hospitals always appear on top.
-          // We don't know if hospitals-layer exists yet, so we add without beforeId
-          // and moveLayer later in this same function.
           map.addLayer({
             id: 'districts-fill',
             type: 'fill',
@@ -170,17 +149,14 @@ export default function HospitalMapView({
           ? ["all"]
           : ["in", selectedDistrict, ["get", "name_ru"]];
 
-        // districts-fill is hidden by default; only shown in zonal mode
         if (map.getLayer('districts-fill')) {
           map.setFilter('districts-fill', distFilter);
-          // Keep opacity at 0 unless zonal mode sets it (handled in EFFECT 2)
         }
         if (map.getLayer('districts-outline')) {
           map.setFilter('districts-outline', distFilter);
         }
       }
 
-      // ── hospitals ──
       const hospSourceId = "hospitals-source";
       const hospLayerId = "hospitals-layer";
 
@@ -245,8 +221,6 @@ export default function HospitalMapView({
             "circle-opacity": 0.9,
           },
         });
-
-        // Click handler registered only once on layer creation
         map.on("click", hospLayerId, async (e) => {
           const feature = e.features[0];
           const props = feature.properties;
@@ -266,12 +240,10 @@ export default function HospitalMapView({
         map.on("mouseenter", hospLayerId, () => map.getCanvas().style.cursor = 'pointer');
         map.on("mouseleave", hospLayerId, () => map.getCanvas().style.cursor = '');
       } else {
-        // Source already exists — just update paint + filter
         map.setPaintProperty(hospLayerId, "circle-color", currentColorLogic);
         map.setFilter(hospLayerId, filterLogic);
       }
 
-      // Districts must always be below hospitals
       safeMoveLayer(map, 'districts-fill', hospLayerId);
       safeMoveLayer(map, 'districts-outline', hospLayerId);
     };
@@ -281,13 +253,10 @@ export default function HospitalMapView({
 
   }, [facilities, selectedDistrict, mapMode, isLoading, districtOnlyGeoJson, activeGeoLayers, selectedOrgTypeForGrid]);
 
-  // ── EFFECT 2: geo overlay layers (grid, zones, refusals, planned) ─────────
-  // Signals geoLayersReady to hide the loader once painting is done.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || isLoading) return;
 
-    // If no heavy layers are requested, mark as ready immediately
     const heavyLayersActive =
       activeGeoLayers.includes("grid") ||
       (activeGeoLayers.includes("orgTypeGrid") && selectedOrgTypeForGrid) ||
@@ -300,7 +269,6 @@ export default function HospitalMapView({
       return;
     }
 
-    // Reset ready flag ONLY when the heavy data itself is new (not on every config change)
     const prev = prevHeavyDataRef.current;
     const dataChanged =
       prev.gridCells !== gridCells ||
@@ -315,7 +283,6 @@ export default function HospitalMapView({
 
     const updateGeoLayers = () => {
       if (!map.isStyleLoaded() || !map.getLayer("hospitals-layer")) {
-        // hospitals-layer not yet present — wait for idle and retry
         map.once('idle', updateGeoLayers);
         return;
       }
@@ -324,7 +291,6 @@ export default function HospitalMapView({
       const isGeneralGridActive = activeGeoLayers.includes("grid");
       const settings = selectedOrgTypeForGrid ? getMoSettings(selectedOrgTypeForGrid) : null;
 
-      // ── grid ──────────────────────────────────────────────────────────────
       const sourceId = "grid-source";
       const layerId = "grid-layer";
 
@@ -371,12 +337,7 @@ export default function HospitalMapView({
         setVisibility(map, layerId, false);
       }
 
-      // ── districts colouring for zonal org-type mode ───────────────────────
       if (isTypeActive && settings?.mode === "zonal") {
-        // Normalize to bare name (without " район") for consistent comparison.
-        // facilities.district = "Алмалинский район"  → strip → "Алмалинский"
-        // plannedObjects.district = "Турксибский"    → already bare
-        // districts name_ru = "Алатауский район"     → we strip in the expression below
         const normalize = (s) => s.replace(/\s*район$/i, "").trim();
 
         const districtsFromFacilities = facilities
@@ -390,18 +351,14 @@ export default function HospitalMapView({
           .map(f => normalize(f.properties?.district || ""))
           .filter(Boolean);
 
-        // Filter out invalid district values like "Не указан"
         const validDistrictNames = new Set(
           (districtsGeoJson?.features || []).map(f => f.properties?.name_ru).filter(Boolean)
         );
 
         const districtsWithMO = Array.from(new Set([...districtsFromFacilities, ...districtsFromPlanned]))
           .map(d => d + " район")
-          .filter(d => validDistrictNames.has(d)); // only keep names that actually exist in GeoJSON
+          .filter(d => validDistrictNames.has(d)); 
 
-        // Inject "has_mo" property into each district feature so MapLibre can use it
-        // This avoids ["match"] against a potentially large literal array and
-        // lets us use fill-opacity per-feature cleanly
         if (districtsGeoJson?.features && map.getSource("districts-source")) {
           const enriched = {
             ...districtOnlyGeoJson,
@@ -422,21 +379,18 @@ export default function HospitalMapView({
           ]);
           map.setPaintProperty("districts-fill", "fill-opacity", 0.75);
         }
-        // In zonal mode use a neutral dark outline so it doesn't bleed color into the fill
         if (map.getLayer("districts-outline")) {
           map.setPaintProperty("districts-outline", "line-color", "#333333");
           map.setPaintProperty("districts-outline", "line-opacity", 0.6);
           map.setPaintProperty("districts-outline", "line-width", 1.5);
         }
       } else {
-        // Restore clean source (strip zonal_has_mo) and hide fill
         if (districtsGeoJson?.features && map.getSource("districts-source")) {
           map.getSource("districts-source").setData(districtOnlyGeoJson);
         }
         if (map.getLayer("districts-fill")) {
           map.setPaintProperty("districts-fill", "fill-opacity", 0);
         }
-        // Restore default outline style
         if (map.getLayer("districts-outline")) {
           map.setPaintProperty("districts-outline", "line-color", "#3772ff");
           map.setPaintProperty("districts-outline", "line-opacity", 0.5);
@@ -444,7 +398,6 @@ export default function HospitalMapView({
         }
       }
 
-      // ── planned dots ──────────────────────────────────────────────────────
       const showPlannedDots = geoAccessMode === "planned" && plannedObjects;
       if (showPlannedDots) {
         const created = ensureSource(map, "planned-dots-source", plannedObjects);
@@ -480,7 +433,6 @@ export default function HospitalMapView({
         setVisibility(map, "planned-dots-layer", false);
       }
 
-      // ── zones ─────────────────────────────────────────────────────────────
       if (activeGeoLayers.includes("zones") && plannedZones) {
         const enrichedData = enrichZonesWithEverything(plannedZones, plannedObjects, recommendations);
         const created = ensureSource(map, "zones-source", enrichedData);
@@ -564,7 +516,6 @@ export default function HospitalMapView({
         setVisibility(map, "zones-line-layer", false);
       }
 
-      // ── refusals ──────────────────────────────────────────────────────────
       if (activeGeoLayers.includes("refusals") && refusalsData.length > 0) {
         const refusalGeojson = {
           type: "FeatureCollection",
@@ -611,12 +562,10 @@ export default function HospitalMapView({
         setVisibility(map, "refusals-layer", false);
       }
 
-      // ── enforce z-order: grid < zones < hospitals ─────────────────────────
       safeMoveLayer(map, "grid-layer", "zones-layer");
       safeMoveLayer(map, "zones-layer", "hospitals-layer");
       safeMoveLayer(map, "zones-line-layer", "hospitals-layer");
 
-      // Signal that all heavy geo layers are painted
       setGeoLayersReady(true);
     };
 
@@ -632,7 +581,6 @@ export default function HospitalMapView({
     geoAccessMode, isLoading, recommendations
   ]);
 
-  // ── EFFECT 3: seismic layer ───────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -693,7 +641,6 @@ export default function HospitalMapView({
     updateSeismic();
   }, [seismicData, showSeismicGrid, isLoading]);
 
-  // ── EFFECT 4: focus on hospital ───────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !focusedHospitalId) return;
@@ -719,7 +666,6 @@ export default function HospitalMapView({
       });
   }, [focusedHospitalId, facilities]);
 
-  // ── EFFECT 5: focus on refusal ────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !focusedRefusal?.latitude) return;
@@ -740,7 +686,6 @@ export default function HospitalMapView({
     activePopupRef.current = popup;
   }, [focusedRefusal]);
 
-  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="relative w-full h-full">
       <MapControls onZoomIn={zoomIn} onZoomOut={zoomOut} onReset={resetView} />
