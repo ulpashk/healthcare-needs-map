@@ -39,13 +39,8 @@ export default function BuildingLegend() {
               <LegendItem color="#d32f2f" label="Критично — аварийное; сейсмо; износ≥70%+возраст≥40 лет; >60 лет без ремонта" />
               <LegendItem color="#ef6c00" label="Риск — износ≥60%; износ≥50%+возраст≥30 лет; возраст≥40 лет без ремонта" />
               <LegendItem color="#2e7d32" label="Норма — свежий кап.ремонт / исправное / строительство запланировано" />
-              {/* <LegendItem color="#1967d2" label="Генплан — реконструкция/строительство" /> */}
               <LegendItem color="#909daf" label="Нет данных" />
             </div>
-            {/* <div className="flex items-center gap-2 pt-1">
-              <Ruler className="w-4 h-4 text-gray-400" />
-              <span className="text-[12px] text-gray-500">Размер = площадь здания</span>
-            </div> */}
           </div>
 
           <hr className="border-gray-100" />
@@ -68,18 +63,6 @@ export default function BuildingLegend() {
             </p>
           </div>
 
-          {/* SECTION 2: Планируемые объекты здрав. */}
-          {/* <div className="space-y-3">
-            <h4 className="text-[12px] font-bold text-[#5f6368]">
-              Планируемые объекты здрав.
-            </h4>
-            <div className="space-y-2.5">
-              <LegendItemWithIcon color="#2e7d32" label="Новая ПМСП — закрывает дефицит" icon={<Building2 className="w-3 h-3 text-purple-400" />} />
-              <LegendItemWithIcon color="#ef6c00" label="Потенциально — ПСД разрабатывается" icon={<Building2 className="w-3 h-3 text-purple-400" />} />
-              <LegendItemWithIcon color="#1967d2" label="Частично — улучшение существующей" icon={<Building2 className="w-3 h-3 text-purple-400" />} />
-              <LegendItemWithIcon color="#757575" label="Не ПМСП (больница, прочее)" icon={<Hospital className="w-3 h-3 text-red-400" />} />
-            </div>
-          </div> */}
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <div className="w-5 h-5 rounded-full bg-[#f29900] border-2 border-white flex items-center justify-center shadow-md shrink-0">
