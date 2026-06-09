@@ -5,6 +5,7 @@ import MapView from "../components/PmspComponents/MapV"
 import BuildingsFilterPanel from "../components/BuildingsPage/BuildingsFilterPanel"
 import BuildingRiskPanel from "../components/PmspComponents/Modal/BuildingRiskPanel"
 import BuildingAgeModal from "../components/PmspComponents/Modal/BuildingAgeModal"
+import BuildingLegend from "../components/PmspComponents/MapLegend/BuildingLegend"
 
 export default function BuildingsPagePMSP() {
   const [mapData, setMapData] = useState(null)
@@ -73,6 +74,10 @@ export default function BuildingsPagePMSP() {
           setAvgVisit={(v) => setStats(s => ({...s, visit: v}))}
           setAvgPerson={(v) => setStats(s => ({...s, person: v}))}
         />
+      </div>
+
+      <div className="absolute bottom-6 right-6 z-30">
+        <BuildingLegend />
       </div>
     </div>
   )

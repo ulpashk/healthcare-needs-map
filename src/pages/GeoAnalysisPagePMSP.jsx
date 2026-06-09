@@ -104,12 +104,12 @@ export default function GeoAnalysisPagePMSP() {
 
       <div className="absolute bottom-20 right-6 z-30">
         <AnalyticsPanel 
-          data={mapData?.pmsp} 
+          data={mapData?.pmsp}
           onZoomTo={(item) => {
             if (mapRef.current) {
               mapRef.current.zoomToLocation(item);
             }
-          }} 
+          }}
         />
       </div>
     </div>
