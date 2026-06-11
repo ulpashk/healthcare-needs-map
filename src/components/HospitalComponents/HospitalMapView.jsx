@@ -35,6 +35,7 @@ export default function HospitalMapView({
   facilities = [],
   mapMode = "buildings",
   selectedDistrict = "Все районы",
+  districtsGeoJson = null,
   seismicData = [],
   showSeismicGrid = false,
   focusedHospitalId = null,
@@ -54,7 +55,7 @@ export default function HospitalMapView({
 
   const [geoLayersReady, setGeoLayersReady] = useState(false);
   const prevHeavyDataRef = useRef({ gridCells: null, plannedZones: null, plannedObjects: null, refusalsData: null });
-  const [districtsGeoJson, setDistrictsGeoJson] = useState(null);
+  // const [districtsGeoJson, setDistrictsGeoJson] = useState(null);
 
   const districtOnlyGeoJson = useMemo(() => {
     if (!districtsGeoJson?.features) return null;
@@ -109,12 +110,12 @@ export default function HospitalMapView({
     document.head.appendChild(style);
   }, []);
 
-  useEffect(() => {
-    fetch("https://admin.smartalmaty.kz/api/v1/address/districts/?city=1")
-      .then(res => res.json())
-      .then(data => setDistrictsGeoJson(data))
-      .catch(err => console.error("Districts fetch error:", err));
-  }, []);
+  // useEffect(() => {
+  //   fetch("https://admin.smartalmaty.kz/api/v1/address/districts/?city=1")
+  //     .then(res => res.json())
+  //     .then(data => setDistrictsGeoJson(data))
+  //     .catch(err => console.error("Districts fetch error:", err));
+  // }, []);
 
   useEffect(() => {
     const map = mapRef.current;

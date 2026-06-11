@@ -9,24 +9,12 @@ import MapLegendHospitals from '../components/HospitalComponents/MapLegendHospit
 import { useHospitalQueries } from '../hooks/useHospitalQueries';
 
 export default function GeoAnalysisPageHospitals() {
-  // const [data, setData] = useState({
-  //   hospitals: [],
-  //   refusals: [],
-  //   plannedZones: null,
-  //   plannedObjects: null,
-  //   gridCells: null,
-  //   profilesSummary: null,
-  //   recommendations: [],
-  // });
-  
   const { data, isLoading } = useHospitalQueries('geo');
-
   const [focusedRefusal, setFocusedRefusal] = useState(null);
   const [selectedOrgType, setSelectedOrgType] = useState(null);
   const [focusedHospitalId, setFocusedHospitalId] = useState(null);
 
   const [loading, setLoading] = useState(true);
-  
   const [filters, setFilters] = useState({
     district: "Все районы",
     mapMode: "geo",
@@ -35,44 +23,6 @@ export default function GeoAnalysisPageHospitals() {
     selectedTechConditions: [],
     searchQuery: ""
   });
-
-  // useEffect(() => {
-  //   const loadAllData = async () => {
-  //     try {
-  //       const [hosp, ref, zones, objs, grid, prof, recs] = await Promise.all([
-  //         HospitalService.getHospitals(),
-  //         HospitalService.getRefusals(),
-  //         HospitalService.getPlannedZones(),
-  //         HospitalService.getPlannedObjects(),
-  //         HospitalService.getGridCells(),
-  //         HospitalService.getBedProfilesSummary(),
-  //         fetch("/geo-files/recommendations.json").then(res => res.json())
-  //       ]);
-
-  //       const filteredPlanned = {
-  //         ...objs,
-  //         features: objs.features.filter(f => 
-  //           ["Больница", "Многопрофильная Больница"].includes(f.properties.obj_type)
-  //         )
-  //       };
-
-  //       setData({
-  //         hospitals: hosp.results,
-  //         refusals: ref,
-  //         plannedZones: zones,
-  //         plannedObjects: filteredPlanned,
-  //         gridCells: grid,
-  //         profilesSummary: prof,
-  //         recommendations: recs
-  //       });
-  //     } catch (err) {
-  //       console.error("Ошибка загрузки данных геоанализа:", err);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
-  //   loadAllData();
-  // }, []);
 
   const filteredPlannedObjects = useMemo(() => {
     if (!data.plannedObjects) return null;
@@ -98,6 +48,7 @@ export default function GeoAnalysisPageHospitals() {
     <div className="relative h-full w-full overflow-hidden">
       <HospitalMapView 
         facilities={filteredHospitals}
+        districtsGeoJson={data.districts}
         mapMode="geo"
         gridCells={data.gridCells}
         plannedZones={data.plannedZones}

@@ -13,7 +13,6 @@ export default function BuildingsPageHospitals() {
   
   const [hospitals, setHospitals] = useState([]);
   const [seismicData, setSeismicData] = useState([]);
-  // const [loading, setLoading] = useState(true);
   
   const [filters, setFilters] = useState({
     district: "Все районы",
@@ -25,59 +24,6 @@ export default function BuildingsPageHospitals() {
     showSeismicGrid: false,
     profileGroups: [],
   });
-
-  // useEffect(() => {
-  //   const loadData = async () => {
-  //     try {
-  //       const [hospRes, seismicRes] = await Promise.all([
-  //         HospitalService.getHospitals(),
-  //         HospitalService.getSeismicPoints()
-  //       ]);
-  //       setHospitals(hospRes.results);
-  //       setSeismicData(seismicRes);
-  //     } catch (err) {
-  //       console.error("Ошибка загрузки:", err);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
-  //   loadData();
-  // }, []);
-
-  // const filteredHospitals = useMemo(() => {
-  //   return hospitals.filter(h => {
-  //     if (filters.searchQuery && !h.name.toLowerCase().includes(filters.searchQuery.toLowerCase())) return false;
-      
-  //     if (filters.district && filters.district !== "Все районы") {
-  //       if (!h.district.includes(filters.district)) return false;
-  //     }
-
-  //     if (filters.selectedTechConditions.length > 0) {
-  //       let conditionKey = "gray";
-  //       if (h.bld_emergency) conditionKey = "dark-red";
-  //       else if (h.bld_tech?.includes("Аварийное")) conditionKey = "red";
-  //       else if (h.bld_seismic) conditionKey = "orange";
-  //       else if (h.bld_tech?.includes("Ветхое") || h.bld_tech?.includes("Неудовлетворительное")) conditionKey = "yellow";
-  //       else if (h.bld_tech?.includes("Исправное")) conditionKey = "green";
-        
-  //       if (!filters.selectedTechConditions.includes(conditionKey)) return false;
-  //     }
-
-  //     if (filters.facilityTypes.length > 0) {
-  //       if (!filters.facilityTypes.includes(h.org_type)) return false;
-  //     }
-
-  //     if (filters.ownTypes.length > 0) {
-  //       if (!filters.ownTypes.includes(h.own_type)) return false;
-  //     }
-  //     if (filters.profileGroups.length > 0) {
-  //       if (!h.profile_groups || !h.profile_groups.some(p => filters.profileGroups.includes(p))) {
-  //         return false;
-  //       }
-  //     }
-  //     return true;
-  //   });
-  // }, [hospitals, filters]);
 
   const filteredHospitals = useMemo(() => {
     return data.hospitals.filter(h => {
@@ -109,6 +55,7 @@ export default function BuildingsPageHospitals() {
     <div className="relative h-full w-full overflow-hidden">
       <HospitalMapView 
         facilities={filteredHospitals}
+        districtsGeoJson={data.districts}
         selectedDistrict={filters.district}
         mapMode={filters.mapMode}
         focusedHospitalId={focusedHospitalId}

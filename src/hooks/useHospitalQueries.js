@@ -7,6 +7,11 @@ export const useHospitalQueries = (mode) => {
     queryFn: HospitalService.getHospitals 
   });
 
+  const districtsQuery = useQuery({ 
+    queryKey: ['districts'], 
+    queryFn: HospitalService.getDistricts 
+  });
+
   const seismicQuery = useQuery({ 
     queryKey: ['seismicPoints'], 
     queryFn: HospitalService.getSeismicPoints,
@@ -54,6 +59,7 @@ export const useHospitalQueries = (mode) => {
   return {
     data: {
       hospitals: hospitalsQuery.data?.results || [],
+      districts: districtsQuery.data,
       seismic: seismicQuery.data || [],
       refusals: refusalsQuery.data,
       plannedZones: plannedZonesQuery.data,
@@ -62,7 +68,7 @@ export const useHospitalQueries = (mode) => {
       profilesSummary: profilesQuery.data,
       recommendations: recommendationsQuery.data || []
     },
-    isLoading: hospitalsQuery.isLoading || (isGeo && (plannedZonesQuery.isLoading || gridQuery.isLoading)),
+    isLoading: hospitalsQuery.isLoading || districtsQuery.isLoading || (isGeo && (plannedZonesQuery.isLoading || gridQuery.isLoading)),
     isFetching: hospitalsQuery.isFetching
   };
 };

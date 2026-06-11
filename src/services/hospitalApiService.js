@@ -1,6 +1,11 @@
 const BASE_URL = 'https://admin.smartalmaty.kz/api/v1';
 
 export const HospitalService = {
+  getDistricts: async () => {
+    const res = await fetch(`${BASE_URL}/address/districts/?city=1`);
+    if (!res.ok) throw new Error("Ошибка при загрузке районов");
+    return res.json();
+  },
   getHospitals: async () => {
     const res = await fetch(`${BASE_URL}/healthcare/hospitals/?limit=1000`);
     return res.json();
