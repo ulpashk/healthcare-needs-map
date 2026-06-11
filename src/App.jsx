@@ -20,12 +20,11 @@ const queryClient = new QueryClient({
 });
 
 function App() {
-  const [selectedDistrict, setSelectedDistrict] = useState("Все районы");
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
         <div className="App h-full w-full flex flex-col overflow-hidden">
-          <Header setSelectedDistrict={setSelectedDistrict} selectedDistrict={selectedDistrict}/>
+          <Header/>
           <main className="flex-1 overflow-hidden">
             <Routes>
               <Route path="/" element={<Navigate to="/pmsp/buildings" replace />} />

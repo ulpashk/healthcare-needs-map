@@ -5,7 +5,7 @@ export default function DistrictFilter({districts, onFilter}) {
     const handleChange = (e) => {
         const value = e.target.value;
         setSelectedDistrict(value);
-        onFilter(value); // Pass selection to parent
+        onFilter(value);
     };
 
     return (

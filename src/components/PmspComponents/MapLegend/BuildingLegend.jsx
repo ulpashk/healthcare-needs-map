@@ -104,7 +104,7 @@ export default function BuildingLegend() {
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         .custom-classic-scrollbar::-webkit-scrollbar {
           width: 8px;
         }

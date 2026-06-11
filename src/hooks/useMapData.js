@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { useHealthcareQueries } from './useHealthcareQueries'; 
+import { useHealthcareQueries } from './useHealthcareQueries';
 
 const isPointInPolygon = (point, geometry) => {
   if (!geometry) return false;
@@ -87,7 +87,7 @@ export const useMapData = (mode) => {
   };
 
   const filterData = useCallback((filters) => {
-    if (!cache.city || !cache.pmsp || !cache.dists || !cache.plannedZones) return null;
+    if (!cache.city?.features || !cache.pmsp?.results || !cache.dists?.features || !cache.plannedZones) return null;
 
     const { 
       districts = ["Все районы"],
@@ -100,7 +100,7 @@ export const useMapData = (mode) => {
 
     const { search = "", techConditions = [] } = extraFilters;
 
-    const currentFacs = cache.pmsp.results.map(f => ({
+    const currentFacs = (cache.pmsp?.results || []).map(f => ({
       lat: f.lat, lng: f.lng, name: f.name, own_type: f.ownership, isPlanned: false
     }));
 
@@ -253,7 +253,7 @@ export const useMapData = (mode) => {
 
     const popMultiplier = activeScenario === '2028' ? 1.03 : 1; 
 
-    const filteredPmspRaw = cache.pmsp.results.filter(item => {
+    const filteredPmspRaw = (cache.pmsp?.results || []).filter(item => {
       const matchDist = checkDistrict(item.district);
       const matchVisit = visits.includes("Все посещения") || visits.includes(getVisitCategory(item.cap_load));
       const matchAffiliation = affiliations.includes("all") || affiliations.includes(item.own_type);      
@@ -323,8 +323,8 @@ export const useMapData = (mode) => {
 
     const stats = {
       totalCount: filteredPmspFeatures.length,
-      totalPopulation: totals.rpn,
-      avgVisit: totals.capacity,
+      totalPopulation: totals.rpn || 0,
+      avgVisit: totals.capacity || 0,
       avgPerson: totals.capacity > 0 
         ? Math.round((totals.rpn / (totals.capacity * 47.5)) * 100)
         : 0
@@ -336,20 +336,23 @@ export const useMapData = (mode) => {
 
     if (cache.pmsp && cache.zhk && cache.plannedObjs) {
       // 1. Текущее население (РПН)
-      const currentPop = cache.pmsp.results.reduce((s, d) => s + (d.population || 0), 0);
-      const zhkhPopAdd_Simple = Math.round(cache.zhk.zhk_rows.reduce((s, p) => s + (p.flats || 0), 0) * PEOPLE_PER_FLAT_SIMPLE);
+      const currentPop = (cache.pmsp?.results || []).reduce((s, d) => s + (d.population || 0), 0);
+
+      const zhkRows = cache.zhk?.zhk_rows || [];
+      const districtSummary = cache.zhk?.district_summary || [];
+      const zhkhPopAdd_Simple = Math.round(zhkRows.reduce((s, p) => s + (p.flats || 0), 0) * PEOPLE_PER_FLAT_SIMPLE);
 
       // 2. Прогноз населения (естественный прирост города)
       const forecastPopBase = Math.round(currentPop * GROWTH_FACTOR);
       
       // 3. Суммируем данные по ЖК из API
       // total_zhk_pop — это сколько НОВЫХ людей приедет в строящиеся ЖК
-      const totalNewZhkPop = cache.zhk.district_summary.reduce((s, d) => s + (d.total_zhk_pop || 0), 0);
+      const totalNewZhkPop = districtSummary.reduce((s, d) => s + (d.total_zhk_pop || 0), 0);
       
       // 4. Суммируем плановую мощность (total_pmsp_cap) из всех записей
       // В вашем API "Алмалинский район" имеет население, а "Алмалинский" — мощность. 
       // Суммируем всё, чтобы получить общую цифру по городу.
-      const totalPlannedCapacityPop = cache.zhk.district_summary.reduce((s, d) => s + (d.total_pmsp_cap || 0), 0);
+      const totalPlannedCapacityPop = districtSummary.reduce((s, d) => s + (d.total_pmsp_cap || 0), 0);
 
       // 5. Расчет дефицита (как в HTML: Население ЖК - Мощность ПМСП)
       // Если > 0, значит мощностей не хватает
@@ -360,7 +363,8 @@ export const useMapData = (mode) => {
       // Т.к. в API данные разнесены по разным строкам (с "район" и без), 
       // сгруппируем их по короткому имени для точности:
       const districtMap = {};
-      cache.zhk.district_summary.forEach(d => {
+      districtSummary.forEach(d => {
+        if (!d.district) return;
         const key = d.district.replace(" район", "").trim();
         if (!districtMap[key]) districtMap[key] = { pop: 0, cap: 0 };
         districtMap[key].pop += (d.total_zhk_pop || 0);
@@ -369,7 +373,7 @@ export const useMapData = (mode) => {
       const criticalDistrictsCount = Object.values(districtMap).filter(v => v.pop > v.cap).length;
 
       // 7. Количество планируемых объектов ПМСП (для показателя "8 зон")
-      const plannedPmspCount = cache.plannedObjs.features.filter(f => f.properties.is_pmsp).length;
+      const plannedPmspCount = (cache.plannedObjs?.features || []).filter(f => f.properties.is_pmsp).length;
 
       // 8. Потребность в новых ПМСП (по красным зонам)
       const redPop = (cache.grid?.features || [])

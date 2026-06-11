@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "../ui/dialog"
 import DoctorsCapacityMethodology from "../Methodology/DoctorsCapacityMethodology"
 
-export default function Header({ setSelectedDistrict, selectedDistrict }) {
+export default function Header() {
   const [mobileMenu, setMobileMenu] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMethodologyOpen, setIsMethodologyOpen] = useState(false)

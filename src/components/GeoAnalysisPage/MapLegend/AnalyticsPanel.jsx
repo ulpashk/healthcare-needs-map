@@ -7,7 +7,6 @@ export default function GeoLegendPanel() {
   return (
     <div className={`w-[320px] bg-white shadow-2xl rounded-t-xl border border-gray-300 overflow-hidden transition-all duration-300 flex flex-col ${isMinimized ? 'h-[42px]' : 'h-fit'}`}>
       
-      {/* HEADER */}
       <div 
         onClick={() => setIsMinimized(!isMinimized)}
         className="bg-[#1967d2] p-2.5 px-4 flex items-center justify-between text-white cursor-pointer hover:bg-[#1557b0] shrink-0"
@@ -22,7 +21,6 @@ export default function GeoLegendPanel() {
       {!isMinimized && (
         <div className="p-4 px-6 overflow-y-auto max-h-[550px] custom-classic-scrollbar space-y-4">
           
-          {/* SECTION 1: Шаговая доступность */}
           <div className="space-y-2.5">
             <h4 className="text-[11px] font-bold text-[#5f6368] uppercase tracking-tight">
               Шаговая доступность (адресная сетка)
@@ -40,7 +38,6 @@ export default function GeoLegendPanel() {
 
           <hr className="border-black opacity-100" />
 
-          {/* SECTION 2: Маркеры */}
           <div className="space-y-2.5">
             <div className="flex items-center gap-3 text-[12px] text-[#3c4043]">
               <div className="w-4 h-4 rounded-full bg-[#70757a]"></div>
@@ -62,7 +59,6 @@ export default function GeoLegendPanel() {
 
           <hr className="border-black opacity-100" />
 
-          {/* SECTION 3: Планируемые объекты здрав. */}
           <div className="space-y-3">
             <h4 className="text-[11px] font-bold text-[#5f6368] uppercase text-center">
               Планируемые объекты здрав.
@@ -80,7 +76,6 @@ export default function GeoLegendPanel() {
 
           <hr className="border-black opacity-100" />
 
-          {/* SECTION 4: ЖКХ */}
           <div className="space-y-3 pb-2">
             <h4 className="text-[11px] font-bold text-[#5f6368] uppercase text-center">
               Планируемые жилые дома (МЖКХ)
@@ -90,7 +85,7 @@ export default function GeoLegendPanel() {
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         /* Классический серый скроллбар как на первом фото */
         .custom-classic-scrollbar::-webkit-scrollbar {
           width: 12px;

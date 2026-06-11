@@ -31,7 +31,6 @@ function safeMoveLayer(map, layerId, beforeId) {
   }
 }
 
-
 export default function HospitalMapView({
   facilities = [],
   mapMode = "buildings",

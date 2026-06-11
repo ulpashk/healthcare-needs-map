@@ -1,7 +1,5 @@
 "use client";
-
 import { Bed, Ruler } from "lucide-react";
-
 
 export default function MapLegend({ mapMode }) {
   const loadLegend = [

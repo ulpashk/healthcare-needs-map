@@ -6,22 +6,26 @@ import RefusalsModal from '../components/HospitalComponents/Modals/RefusalsModal
 import ProfilesDeficitModal from '../components/HospitalComponents/Modals/ProfilesDeficitModal';
 import OrgTypeGridPanel from '../components/HospitalComponents/OrgTypeGridPanel';
 import MapLegendHospitals from '../components/HospitalComponents/MapLegendHospitals';
+import { useHospitalQueries } from '../hooks/useHospitalQueries';
 
 export default function GeoAnalysisPageHospitals() {
-  const [data, setData] = useState({
-    hospitals: [],
-    refusals: [],
-    plannedZones: null,
-    plannedObjects: null,
-    gridCells: null,
-    profilesSummary: null,
-    recommendations: [],
-  });
+  // const [data, setData] = useState({
+  //   hospitals: [],
+  //   refusals: [],
+  //   plannedZones: null,
+  //   plannedObjects: null,
+  //   gridCells: null,
+  //   profilesSummary: null,
+  //   recommendations: [],
+  // });
   
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading } = useHospitalQueries('geo');
+
   const [focusedRefusal, setFocusedRefusal] = useState(null);
   const [selectedOrgType, setSelectedOrgType] = useState(null);
   const [focusedHospitalId, setFocusedHospitalId] = useState(null);
+
+  const [loading, setLoading] = useState(true);
   
   const [filters, setFilters] = useState({
     district: "Все районы",
@@ -32,55 +36,63 @@ export default function GeoAnalysisPageHospitals() {
     searchQuery: ""
   });
 
-  useEffect(() => {
-    const loadAllData = async () => {
-      try {
-        const [hosp, ref, zones, objs, grid, prof, recs] = await Promise.all([
-          HospitalService.getHospitals(),
-          HospitalService.getRefusals(),
-          HospitalService.getPlannedZones(),
-          HospitalService.getPlannedObjects(),
-          HospitalService.getGridCells(),
-          HospitalService.getBedProfilesSummary(),
-          fetch("/geo-files/recommendations.json").then(res => res.json())
-        ]);
+  // useEffect(() => {
+  //   const loadAllData = async () => {
+  //     try {
+  //       const [hosp, ref, zones, objs, grid, prof, recs] = await Promise.all([
+  //         HospitalService.getHospitals(),
+  //         HospitalService.getRefusals(),
+  //         HospitalService.getPlannedZones(),
+  //         HospitalService.getPlannedObjects(),
+  //         HospitalService.getGridCells(),
+  //         HospitalService.getBedProfilesSummary(),
+  //         fetch("/geo-files/recommendations.json").then(res => res.json())
+  //       ]);
 
-        const filteredPlanned = {
-          ...objs,
-          features: objs.features.filter(f => 
-            ["Больница", "Многопрофильная Больница"].includes(f.properties.obj_type)
-          )
-        };
+  //       const filteredPlanned = {
+  //         ...objs,
+  //         features: objs.features.filter(f => 
+  //           ["Больница", "Многопрофильная Больница"].includes(f.properties.obj_type)
+  //         )
+  //       };
 
-        setData({
-          hospitals: hosp.results,
-          refusals: ref,
-          plannedZones: zones,
-          plannedObjects: filteredPlanned,
-          gridCells: grid,
-          profilesSummary: prof,
-          recommendations: recs
-        });
-      } catch (err) {
-        console.error("Ошибка загрузки данных геоанализа:", err);
-      } finally {
-        setLoading(false);
-      }
+  //       setData({
+  //         hospitals: hosp.results,
+  //         refusals: ref,
+  //         plannedZones: zones,
+  //         plannedObjects: filteredPlanned,
+  //         gridCells: grid,
+  //         profilesSummary: prof,
+  //         recommendations: recs
+  //       });
+  //     } catch (err) {
+  //       console.error("Ошибка загрузки данных геоанализа:", err);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
+  //   loadAllData();
+  // }, []);
+
+  const filteredPlannedObjects = useMemo(() => {
+    if (!data.plannedObjects) return null;
+    return {
+      ...data.plannedObjects,
+      features: data.plannedObjects.features.filter(f => 
+        ["Больница", "Многопрофильная Больница"].includes(f.properties.obj_type)
+      )
     };
-    loadAllData();
-  }, []);
+  }, [data.plannedObjects]);
 
   const filteredHospitals = useMemo(() => {
     return data.hospitals.filter(h => {
-      if (filters.district && filters.district !== "Все районы") {
-        if (!h.district.includes(filters.district)) return false;
-      }
+      if (filters.district && filters.district !== "Все районы" && !h.district.includes(filters.district)) return false;
       if (filters.searchQuery && !h.name.toLowerCase().includes(filters.searchQuery.toLowerCase())) return false;
       return true;
     });
   }, [data.hospitals, filters]);
 
-  if (loading) return <div className="h-full w-full flex items-center justify-center">Загрузка гео-слоев (Grid, Zones)...</div>;
+  if (isLoading) return <div className="h-full w-full flex items-center justify-center">Загрузка гео-слоев (Grid, Zones)...</div>;
 
   return (
     <div className="relative h-full w-full overflow-hidden">
@@ -89,7 +101,7 @@ export default function GeoAnalysisPageHospitals() {
         mapMode="geo"
         gridCells={data.gridCells}
         plannedZones={data.plannedZones}
-        plannedObjects={data.plannedObjects}
+        plannedObjects={filteredPlannedObjects}
         recommendations={data.recommendations}
         refusalsData={data.refusals?.results || []} 
         activeGeoLayers={filters.activeGeoLayers}
