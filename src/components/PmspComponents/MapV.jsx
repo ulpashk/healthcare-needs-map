@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useEffect, useRef } from 'react';
+import { forwardRef, useImperativeHandle, useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import { useMapInitialization } from '../../hooks/useMapInitialization';
 import { useMapData } from '../../hooks/useMapData';
@@ -8,6 +8,7 @@ import { MapLayersManager } from '../../utils/mapLayers';
 import { MapControls } from '../general/MapControls';
 import { LoadingOverlay } from '../general/LoadingOverlay';
 import { HealthcareService } from '../../services/apiService';
+import { AnalysisSidebar } from '../map/AnalysisSidebar';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 const MapView = forwardRef(({
@@ -28,12 +29,18 @@ const MapView = forwardRef(({
   mode = "load",
   activeScenario = 'current', 
   isPlanningActive = false,
+  isMapPlanningActive = false,
 }, ref) => {
   const mapContainer = useRef(null);
   const { mapRef, isLoading: mapLoading, zoomIn, zoomOut, resetView } = useMapInitialization(mapContainer);
   const {filterData, isLoading: dataLoading, isReady, data: rawCacheData } = useMapData(mode); 
   const activePopupRef = useRef(null);
   const showFullLoader = mapLoading || !isReady;
+  const dataRef = useRef(null);
+  const previousPointRef = useRef(null);
+  const [analysisResults, setAnalysisResults] = useState(null);
+  const [currentData, setCurrentData] = useState(null);
+  const [isSimulating, setIsSimulating] = useState(false);
 
   const removeExistingPopup = () => {
     if (activePopupRef.current) {
@@ -102,6 +109,22 @@ const MapView = forwardRef(({
         'planned-objs-unclustered-circle', 'geo-markers-layer', 'planned-fill'
       ];
 
+      if (isMapPlanningActive) {
+        const { lng, lat } = e.lngLat;
+        
+        setIsSimulating(false);
+        MapLayersManager.updateAnalysisZone(map, { lng, lat }, 1200);
+        
+        if (dataRef.current) {
+          const stats = MapLayersManager.calculateAnalysisStats({ lng, lat }, dataRef.current);
+          if (stats) {
+            setAnalysisResults({ ...stats, address: "Точка на карте" });      
+          }
+        }
+        MapLayersManager.bringAnalysisToFront(map);
+        return;
+      }
+
       const activeLayers = layers.filter(id => map.getLayer(id));
       const features = map.queryRenderedFeatures(e.point, { layers: activeLayers });
 
@@ -133,6 +156,10 @@ const MapView = forwardRef(({
     };
 
     const handleMouseMove = (e) => {
+      if (isMapPlanningActive) {
+        map.getCanvas().style.cursor = 'crosshair';
+        return;
+      }
       const layers = [
         'pmsp-layer', 'infra-points', 'zhk-points-unclustered-circle', 'zhk-points-cluster-circle',
         'planned-objs-unclustered-circle', 'planned-objs-cluster-circle', 'geo-markers-layer', 'planned-fill'
@@ -159,10 +186,13 @@ const MapView = forwardRef(({
         layers: selectedLayers,
         affiliations: selectedAffiliations, 
         activeScenario: activeScenario, 
-        extraFilters: extraFilters 
+        extraFilters: extraFilters, 
+        simulatedPoint: isSimulating ? analysisResults?.lngLat : null
       });
 
       if (!data || !data.city) return;
+      dataRef.current = data; 
+      setCurrentData(data);
       if (onDataUpdate) onDataUpdate(data);
 
       MapLayersManager.setupCityBoundary(map, data.city);
@@ -198,6 +228,10 @@ const MapView = forwardRef(({
 
       MapLayersManager.applyLayerOrder(map);
 
+      if (analysisResults) {
+        MapLayersManager.bringAnalysisToFront(map);
+      }
+
       if (map.getLayer('planned-objs-cluster-circle')) MapLayersManager.setupClusterClicks(map, 'planned-objs');
       if (map.getLayer('zhk-points-cluster-circle')) MapLayersManager.setupClusterClicks(map, 'zhk-points');
 
@@ -221,7 +255,134 @@ const MapView = forwardRef(({
       map.getCanvas().style.cursor = '';
     };
 
-  }, [selectedDistrict, selectedVisits, selectedLayers, selectedAffiliations, extraFilters, isPlanningActive, mode, geoMode, filterData, isReady, rawCacheData, activeScenario]);
+  }, [selectedDistrict, selectedVisits, selectedLayers, selectedAffiliations, extraFilters, isPlanningActive, isMapPlanningActive, isSimulating, analysisResults, mode, geoMode, filterData, isReady, rawCacheData, activeScenario]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const handleGlobalFlyTo = (e) => {
+      const { lng, lat, address } = e.detail;
+
+      setIsSimulating(false); 
+      removeExistingPopup();
+
+      map.flyTo({
+        center: [lng, lat],
+        zoom: 13,
+        essential: true
+      });
+
+      MapLayersManager.updateAnalysisZone(map, { lng, lat }, 1200);
+
+      if (dataRef.current) {
+        const stats = MapLayersManager.calculateAnalysisStats({ lng, lat }, dataRef.current);
+        
+        if (stats) {
+          setAnalysisResults({ ...stats, address, lngLat: { lng, lat } });
+        } else {
+          console.warn("calculateAnalysisStats вернул null");
+        }
+      } else {
+        console.error("Данные (dataRef.current) еще не загружены в карту");
+      }
+
+      const popup = new maplibregl.Popup({ offset: 10, closeButton: true })
+        .setLngLat([lng, lat])
+        .setHTML(`
+          <div style="padding: 8px; font-family: sans-serif; min-width: 200px;">
+            <div style="font-weight: bold; color: #3b82f6; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+              <span style="font-size: 16px;">🔍</span> Анализ локации
+            </div>
+            <div style="font-size: 11px; color: #666; margin-bottom: 8px;">${address}</div>
+            <div style="border-top: 1px solid #eee; pt-2; font-size: 12px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                <span>Статус:</span> <b style="color: #2e7d32;">Обработка...</b>
+              </div>
+            </div>
+          </div>
+        `)
+        .addTo(map);
+      
+      activePopupRef.current = popup;
+    };
+
+    window.addEventListener('map-fly-to', handleGlobalFlyTo);
+
+    return () => {
+      window.removeEventListener('map-fly-to', handleGlobalFlyTo);
+    };
+  }, [mapRef.current, isReady]);
+
+  useEffect(() => {
+    if (!isMapPlanningActive) {
+      setAnalysisResults(null);
+      if (mapRef.current) {
+        MapLayersManager.updateAnalysisZone(mapRef.current, null);
+      }
+      setIsSimulating(false);
+    }
+  }, [isMapPlanningActive]);
+
+  useEffect(() => {
+    const point = analysisResults?.lngLat;
+
+    if (!point) return;
+
+    const previousPoint = previousPointRef.current;
+
+    if (
+      previousPoint &&
+      (
+        previousPoint.lat !== point.lat ||
+        previousPoint.lng !== point.lng
+      )
+    ) {
+      setIsSimulating(false);
+    }
+
+    previousPointRef.current = point;
+  }, [
+    analysisResults?.lngLat?.lat,
+    analysisResults?.lngLat?.lng
+  ]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (!map || !isReady || isSimulating) return;
+
+    const data = filterData({
+      districts: selectedDistrict,
+      visits: selectedVisits,
+      layers: selectedLayers,
+      affiliations: selectedAffiliations,
+      activeScenario,
+      extraFilters,
+      simulatedPoint: null
+    });
+
+    if (!data?.grid) return;
+
+    MapLayersManager.resetImpact(map);
+
+    MapLayersManager.updateGridLayer(
+      map,
+      data.grid,
+      geoMode === "walkaccess"
+    );
+  }, [
+    isSimulating,
+    isReady,
+    filterData,
+    selectedDistrict,
+    selectedVisits,
+    selectedLayers,
+    selectedAffiliations,
+    activeScenario,
+    extraFilters,
+    geoMode
+  ]);
 
   return (
     <div className="relative w-full h-full">
@@ -235,6 +396,21 @@ const MapView = forwardRef(({
         className="w-full h-full"
         ref={mapContainer}
       />
+
+      {analysisResults && (
+        <AnalysisSidebar 
+          results={analysisResults} 
+          isSimulating={isSimulating}
+          onSimulate={() => setIsSimulating(!isSimulating)}
+          onClose={() => {
+            setAnalysisResults(null);
+            setIsSimulating(false);
+            if (mapRef.current) {
+              MapLayersManager.updateAnalysisZone(mapRef.current, null);
+            }
+          }} 
+        />
+      )}
 
       <LoadingOverlay isLoading={showFullLoader} />
     </div>

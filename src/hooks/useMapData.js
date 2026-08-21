@@ -95,7 +95,8 @@ export const useMapData = (mode) => {
       visits = ["Все посещения"],
       layers = ["Все слои"],
       affiliations = ["all"],
-      extraFilters = {}
+      extraFilters = {},
+      simulatedPoint = null
     } = filters;
 
     const { search = "", techConditions = [] } = extraFilters;
@@ -117,6 +118,17 @@ export const useMapData = (mode) => {
         }));
       activeFacsForGrid = [...activeFacsForGrid, ...plannedFacs];
     }
+
+    if (simulatedPoint) {
+      activeFacsForGrid.push({
+        lat: simulatedPoint.lat,
+        lng: simulatedPoint.lng,
+        name: "Симулируемый объект",
+        isPlanned: true
+      });
+    }
+
+    console.log("simulatedPoint in useMapData:", simulatedPoint);
 
     const isAllDistricts = districts.includes("Все районы");
     const normalizedSelectedDistricts = districts.map(d => normalize(d));
@@ -164,9 +176,10 @@ export const useMapData = (mode) => {
       ...cache.grid,
       features: cache.grid.features
         .filter(cell => checkDistrict(cell.properties.district))
-        .map(cell => {
-          const cLat = (cell.geometry.coordinates[0][0][0][1] + cell.geometry.coordinates[0][0][2][1]) / 2;
-          const cLng = (cell.geometry.coordinates[0][0][0][0] + cell.geometry.coordinates[0][0][2][0]) / 2;
+        .map((cell, index) => {
+          const cellCoords = cell.geometry.coordinates[0][0];
+          const cLat = (cellCoords[0][1] + cellCoords[2][1]) / 2;
+          const cLng = (cellCoords[0][0] + cellCoords[2][0]) / 2;
           
           let minDist = Infinity;
           for (const fac of activeFacsForGrid) {
@@ -176,11 +189,11 @@ export const useMapData = (mode) => {
 
           const newCat = minDist <= 800 ? 'g10' : minDist <= 1200 ? 'g15' : minDist <= 1600 ? 'ylw' : 'red';
           const origCat = cell.properties.pmsp_access_cat;
-          
           const improved = (origCat === 'red' || origCat === 'ylw') && (newCat === 'g10' || newCat === 'g15');
 
           return {
             ...cell,
+            id: cell.properties.id || index, 
             properties: {
               ...cell.properties,
               pmsp_access_cat: newCat,
@@ -298,8 +311,12 @@ export const useMapData = (mode) => {
 
     const filteredPlannedObjs = cache.plannedObjs ? {
       ...cache.plannedObjs,
-      features: cache.plannedObjs.features.filter(f => checkDistrict(f.properties.district))
-        .map(f => ({ ...f, properties: { ...f.properties, layerType: 'planned' } }))
+      features: cache.plannedObjs.features.filter(f => {
+        const matchDistrict = checkDistrict(f.properties.district);
+        const matchPmsp = f.properties.is_pmsp === true || f.properties.is_pmsp === 1;
+        return matchDistrict && matchPmsp;
+      })
+      .map(f => ({ ...f, properties: { ...f.properties, layerType: 'planned' } }))
     } : null;
 
     const filteredZhk = cache.zhk ? {
@@ -335,33 +352,20 @@ export const useMapData = (mode) => {
     const plannedPmspObjects = cache.plannedObjs?.features?.filter(f => f.properties.is_pmsp) || [];
 
     if (cache.pmsp && cache.zhk && cache.plannedObjs) {
-      // 1. Текущее население (РПН)
       const currentPop = (cache.pmsp?.results || []).reduce((s, d) => s + (d.population || 0), 0);
 
       const zhkRows = cache.zhk?.zhk_rows || [];
       const districtSummary = cache.zhk?.district_summary || [];
       const zhkhPopAdd_Simple = Math.round(zhkRows.reduce((s, p) => s + (p.flats || 0), 0) * PEOPLE_PER_FLAT_SIMPLE);
 
-      // 2. Прогноз населения (естественный прирост города)
       const forecastPopBase = Math.round(currentPop * GROWTH_FACTOR);
       
-      // 3. Суммируем данные по ЖК из API
-      // total_zhk_pop — это сколько НОВЫХ людей приедет в строящиеся ЖК
       const totalNewZhkPop = districtSummary.reduce((s, d) => s + (d.total_zhk_pop || 0), 0);
       
-      // 4. Суммируем плановую мощность (total_pmsp_cap) из всех записей
-      // В вашем API "Алмалинский район" имеет население, а "Алмалинский" — мощность. 
-      // Суммируем всё, чтобы получить общую цифру по городу.
       const totalPlannedCapacityPop = districtSummary.reduce((s, d) => s + (d.total_pmsp_cap || 0), 0);
 
-      // 5. Расчет дефицита (как в HTML: Население ЖК - Мощность ПМСП)
-      // Если > 0, значит мощностей не хватает
       const forecastDeficit = totalNewZhkPop - totalPlannedCapacityPop;
 
-      // 6. Подсчет критичных районов
-      // Район считается критичным, если его население от ЖК больше, чем планируемая мощность.
-      // Т.к. в API данные разнесены по разным строкам (с "район" и без), 
-      // сгруппируем их по короткому имени для точности:
       const districtMap = {};
       districtSummary.forEach(d => {
         if (!d.district) return;
@@ -372,10 +376,8 @@ export const useMapData = (mode) => {
       });
       const criticalDistrictsCount = Object.values(districtMap).filter(v => v.pop > v.cap).length;
 
-      // 7. Количество планируемых объектов ПМСП (для показателя "8 зон")
       const plannedPmspCount = (cache.plannedObjs?.features || []).filter(f => f.properties.is_pmsp).length;
 
-      // 8. Потребность в новых ПМСП (по красным зонам)
       const redPop = (cache.grid?.features || [])
         .filter(f => f.properties.pmsp_access_cat === 'red')
         .reduce((s, f) => s + (f.properties.population || 0), 0);
@@ -384,13 +386,13 @@ export const useMapData = (mode) => {
         .filter(f => f.properties.improved).length;
 
       forecastStats = {
-        forecastPopBase,            // Прогноз 2028 (2.47 млн)
-        zhkhPopAdd: zhkhPopAdd_Simple, // Доп. население от МЖК (208.1 тыс)
-        totalNewZhkPop: totalNewZhkPop, // Доп. население от МЖК (208.1 тыс)
+        forecastPopBase, 
+        zhkhPopAdd: zhkhPopAdd_Simple,
+        totalNewZhkPop: totalNewZhkPop,
         zhkCount: cache.zhk.zhk_rows.length,
-        totalPlannedServedPop: totalPlannedCapacityPop, // Мощность 135.8 тыс
-        forecastDeficit,            // Дефицит +72.3 тыс
-        improvedZonesCount: improvedCellsCount, // "8 зон стали доступны"
+        totalPlannedServedPop: totalPlannedCapacityPop,
+        forecastDeficit,
+        improvedZonesCount: improvedCellsCount,
         neededNewUnits: Math.max(0, Math.round(redPop / NORM_POP_UNIT)),
         criticalDistrictsCount, 
         plannedPmspObjects

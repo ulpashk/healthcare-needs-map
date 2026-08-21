@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo, forwardRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import { useMapInitialization } from '../../hooks/useMapInitialization';
+import { AnalysisSidebar } from '../map/AnalysisSidebar';
+import { MapLayersManager } from '../../utils/mapLayers';
 import { HospitalService } from '../../services/hospitalApiService';
 import { MapControls } from '../general/MapControls';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -31,7 +33,7 @@ function safeMoveLayer(map, layerId, beforeId) {
   }
 }
 
-export default function HospitalMapView({
+export default forwardRef(function HospitalMapView({
   facilities = [],
   mapMode = "buildings",
   selectedDistrict = "Все районы",
@@ -48,11 +50,14 @@ export default function HospitalMapView({
   geoAccessMode = "current",
   focusedRefusal = null,
   selectedOrgTypeForGrid = null,
-}) {
+  isMapPlanningActive = false,
+}, ref) {
+  const [analysisResults, setAnalysisResults] = useState(null);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const dataRef = useRef(null);
   const mapContainer = useRef(null);
   const { mapRef, isLoading, zoomIn, zoomOut, resetView } = useMapInitialization(mapContainer);
   const activePopupRef = useRef(null);
-
   const [geoLayersReady, setGeoLayersReady] = useState(false);
   const prevHeavyDataRef = useRef({ gridCells: null, plannedZones: null, plannedObjects: null, refusalsData: null });
   // const [districtsGeoJson, setDistrictsGeoJson] = useState(null);
@@ -70,6 +75,10 @@ export default function HospitalMapView({
   const popupOpenerRef = useRef(null);
 
   const showLoader = isLoading || !geoLayersReady;
+
+  useEffect(() => {
+    dataRef.current = { gridCells, facilities, plannedObjects };
+  }, [gridCells, facilities, plannedObjects]);
 
   useEffect(() => {
     const styleId = 'hospital-popup-styles';
@@ -109,13 +118,6 @@ export default function HospitalMapView({
     `;
     document.head.appendChild(style);
   }, []);
-
-  // useEffect(() => {
-  //   fetch("https://admin.smartalmaty.kz/api/v1/address/districts/?city=1")
-  //     .then(res => res.json())
-  //     .then(data => setDistrictsGeoJson(data))
-  //     .catch(err => console.error("Districts fetch error:", err));
-  // }, []);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -307,6 +309,13 @@ export default function HospitalMapView({
             }
           });
         }
+
+        if (isSimulating && analysisResults?.lngLat) {
+          points.push({ 
+            lat: analysisResults.lngLat.lat, 
+            lng: analysisResults.lngLat.lng 
+          });
+        }
         gridData = computeGridData(gridCells, points);
       } else if (isTypeActive && settings?.mode === "territorial" && gridCells) {
         shouldShowGrid = true;
@@ -414,6 +423,22 @@ export default function HospitalMapView({
               "circle-opacity": 1
             }
           });
+          map.addLayer({
+            id: "planned-dots-plus-layer",
+            type: "symbol",
+            source: "planned-dots-source",
+            layout: {
+              "text-field": "+",
+              "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+              "text-size": 14,
+              "text-allow-overlap": true,
+              "text-ignore-placement": true,
+              "text-offset": [0, -0.05]
+            },
+            paint: {
+              "text-color": "#ffffff"
+            }
+          });
           map.on("click", "planned-dots-layer", (e) => {
             if (!e.features?.length) return;
             const props = e.features[0].properties;
@@ -428,9 +453,11 @@ export default function HospitalMapView({
           map.on("mouseleave", "planned-dots-layer", () => map.getCanvas().style.cursor = '');
         } else {
           setVisibility(map, "planned-dots-layer", true);
+          setVisibility(map, "planned-dots-plus-layer", true);
         }
       } else {
         setVisibility(map, "planned-dots-layer", false);
+        setVisibility(map, "planned-dots-plus-layer", false);
       }
 
       if (activeGeoLayers.includes("zones") && plannedZones) {
@@ -578,7 +605,8 @@ export default function HospitalMapView({
   }, [
     activeGeoLayers, gridCells, plannedZones, refusalsData,
     plannedObjects, facilities, selectedOrgTypeForGrid,
-    geoAccessMode, isLoading, recommendations
+    geoAccessMode, isLoading, recommendations, 
+    isSimulating, analysisResults
   ]);
 
   useEffect(() => {
@@ -686,10 +714,108 @@ export default function HospitalMapView({
     activePopupRef.current = popup;
   }, [focusedRefusal]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const handleMapClick = (e) => {
+      if (isMapPlanningActive) {
+        const { lng, lat } = e.lngLat;
+        
+        setIsSimulating(false);
+
+        MapLayersManager.updateAnalysisZone(map, { lng, lat }, 3000); 
+
+        if (dataRef.current?.gridCells) {
+          const stats = MapLayersManager.calculateHospitalAnalysisStats(
+            { lng, lat }, 
+            { grid: dataRef.current.gridCells, hospitals: dataRef.current.facilities, planned: dataRef.current.plannedObjects }
+          );
+          if (stats) {
+            setAnalysisResults({ ...stats, address: "Выбранная точка", lngLat: { lng, lat } });
+          }
+        }
+        MapLayersManager.bringAnalysisToFront(map);
+      }
+    };
+
+    map.on('click', handleMapClick);
+    return () => map.off('click', handleMapClick);
+  }, [isMapPlanningActive]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const handleGlobalFlyTo = (e) => {
+      const { lng, lat, address } = e.detail;
+      setIsSimulating(false);
+      MapLayersManager.resetImpact(map);
+
+      map.flyTo({ center: [lng, lat], zoom: 12, essential: true });
+      MapLayersManager.updateAnalysisZone(map, { lng, lat }, 3000);
+
+      if (dataRef.current?.gridCells) {
+        const stats = MapLayersManager.calculateHospitalAnalysisStats(
+          { lng, lat }, 
+          { grid: dataRef.current.gridCells, hospitals: dataRef.current.facilities, planned: dataRef.current.plannedObjects }
+        );
+        setAnalysisResults({ ...stats, address });
+      }
+    };
+
+    window.addEventListener('map-fly-to', handleGlobalFlyTo);
+    return () => window.removeEventListener('map-fly-to', handleGlobalFlyTo);
+  }, []);
+
+  useEffect(() => {
+    if (!isMapPlanningActive) {
+      setAnalysisResults(null);
+      setIsSimulating(false);
+      if (mapRef.current) {
+        MapLayersManager.updateAnalysisZone(mapRef.current, null);
+        MapLayersManager.resetImpact(mapRef.current);
+      }
+    }
+  }, [isMapPlanningActive]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const updateCursor = () => {
+      if (isMapPlanningActive) {
+        map.getCanvas().style.cursor = 'crosshair';
+      } else {
+        map.getCanvas().style.cursor = '';
+      }
+    };
+
+    map.on('mousemove', updateCursor);
+    return () => map.off('mousemove', updateCursor);
+  }, [isMapPlanningActive]);
+
   return (
     <div className="relative w-full h-full">
       <MapControls onZoomIn={zoomIn} onZoomOut={zoomOut} onReset={resetView} />
       <div ref={mapContainer} className="w-full h-full" />
+
+      {analysisResults && (
+        <AnalysisSidebar 
+          results={analysisResults} 
+          isSimulating={isSimulating}
+          onSimulate={() => {
+            setIsSimulating(!isSimulating);
+          }}
+          onClose={() => {
+            setAnalysisResults(null);
+            setIsSimulating(false);
+            MapLayersManager.updateAnalysisZone(mapRef.current, null);
+            MapLayersManager.resetImpact(mapRef.current);
+          }} 
+        />
+      )}
+
       {showLoader && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-sm z-50">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
@@ -697,4 +823,4 @@ export default function HospitalMapView({
       )}
     </div>
   );
-}
+})

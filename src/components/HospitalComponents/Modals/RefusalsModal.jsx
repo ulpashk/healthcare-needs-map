@@ -4,12 +4,11 @@ import { X, AlertOctagon } from "lucide-react";
 export default function RefusalsModal({ onClose, data, onItemClick }) {
   if (!data || !data.results) return null;
 
-  // Функция для определения цвета в зависимости от % отказов
   const getRefusalColor = (pct) => {
     const val = parseFloat(pct);
-    if (val >= 70) return "#C62828"; // Красный (Критично)
-    if (val >= 50) return "#EF6C00"; // Оранжевый (Высокий)
-    return "#2E7D32";                // Зеленый (Норма)
+    if (val >= 70) return "#C62828";
+    if (val >= 50) return "#EF6C00";
+    return "#2E7D32";
   };
 
   const sortedResults = [...data.results]
@@ -22,7 +21,6 @@ export default function RefusalsModal({ onClose, data, onItemClick }) {
 
   return (
     <div className="absolute top-4 right-4 z-50 w-[350px] bg-white rounded-xl shadow-2xl overflow-hidden border border-red-200 animate-in fade-in slide-in-from-right-4 duration-300 flex flex-col max-h-[85vh]">
-      {/* HEADER */}
       <div className="bg-[#7B0000] p-3 flex items-center justify-between text-white shrink-0">
         <div className="flex items-center gap-2">
           <AlertOctagon className="h-4 w-4 shrink-0" />
@@ -36,7 +34,6 @@ export default function RefusalsModal({ onClose, data, onItemClick }) {
       </div>
 
       <div className="p-4 bg-white text-left overflow-y-auto scrollbar-hide">
-        {/* СТАТИСТИКА ПО ГОРОДУ */}
         <div className="mb-6">
           <div className="grid grid-cols-3 gap-2 text-center">
             <div>
@@ -68,8 +65,7 @@ export default function RefusalsModal({ onClose, data, onItemClick }) {
         </div>
 
         <div className="text-[10px] font-bold text-gray-400 uppercase mb-2 tracking-wider">По типу МО (% отказов)</div>
-        
-        {/* СПИСОК С ЦВЕТАМИ */}
+
         <div className="space-y-3 pr-1">
           {sortedResults.map((item, idx) => {
             const pctRef = item.total_emergency_visits > 0 
@@ -106,7 +102,6 @@ export default function RefusalsModal({ onClose, data, onItemClick }) {
                     {pctRef}%
                   </div>
                 </div>
-                {/* Динамический прогресс-бар */}
                 <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
                   <div 
                     className="h-full opacity-85 transition-all duration-500" 

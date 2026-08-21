@@ -24,7 +24,7 @@ export default function MapLegend({ mapMode }) {
   const title = mapMode === "buildings" ? "Здания — тех. состояние" : mapMode === "load" ? "Стационары — загруженность" : "Стационары — геоанализ";
 
   return (
-    <div className="absolute bottom-6 right-4 z-20 w-64 bg-white rounded-xl shadow-2xl overflow-hidden border border-gray-200 animate-in fade-in slide-in-from-bottom-2">
+    <div className="absolute bottom-20 right-6 z-20 w-64 bg-white rounded-xl shadow-2xl overflow-hidden border border-gray-200 animate-in fade-in slide-in-from-bottom-2">
       <div className="bg-[#1565C0] p-2.5 px-4 flex items-center gap-2 text-white">
         <Bed className="h-4 w-4" />
         <span className="text-xs font-bold tracking-wide">{title}</span>

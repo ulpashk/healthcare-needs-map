@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import HospitalMapView from '../components/HospitalComponents/HospitalMapView';
 import HospitalFilter from '../components/HospitalComponents/HospitalFilter';
 import { HospitalService } from '../services/hospitalApiService';
@@ -13,6 +13,8 @@ export default function GeoAnalysisPageHospitals() {
   const [focusedRefusal, setFocusedRefusal] = useState(null);
   const [selectedOrgType, setSelectedOrgType] = useState(null);
   const [focusedHospitalId, setFocusedHospitalId] = useState(null);
+  const [isMapPlanningActive, setIsMapPlanningActive] = useState(false);
+  const mapRef = useRef();
 
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
@@ -23,6 +25,14 @@ export default function GeoAnalysisPageHospitals() {
     selectedTechConditions: [],
     searchQuery: ""
   });
+
+  useEffect(() => {
+    const handleToggle = (e) => {
+      setIsMapPlanningActive(e.detail.active);
+    };
+    window.addEventListener('toggle-planning-mode', handleToggle);
+    return () => window.removeEventListener('toggle-planning-mode', handleToggle);
+  }, []);
 
   const filteredPlannedObjects = useMemo(() => {
     if (!data.plannedObjects) return null;
@@ -45,7 +55,7 @@ export default function GeoAnalysisPageHospitals() {
   if (isLoading) return <div className="h-full w-full flex items-center justify-center">Загрузка гео-слоев (Grid, Zones)...</div>;
 
   return (
-    <div className="relative h-full w-full overflow-hidden">
+    <div className="relative w-full h-screen overflow-hidden">
       <HospitalMapView 
         facilities={filteredHospitals}
         districtsGeoJson={data.districts}
@@ -61,6 +71,8 @@ export default function GeoAnalysisPageHospitals() {
         focusedHospitalId={focusedHospitalId}
         selectedOrgTypeForGrid={selectedOrgType}
         selectedDistrict={filters.district}
+        isMapPlanningActive={isMapPlanningActive}
+        ref={mapRef}
       />
 
       <div className="absolute top-4 left-4 z-10">

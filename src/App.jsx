@@ -23,7 +23,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
-        <div className="App h-full w-full flex flex-col overflow-hidden">
+        <div className="App h-screen w-full flex flex-col overflow-hidden">
           <Header/>
           <main className="flex-1 overflow-hidden">
             <Routes>

@@ -662,6 +662,18 @@ export const MapLayersManager = {
         map.moveLayer(id); 
       }
     });
+
+    const analysisLayers = [
+      'analysis-zone-fill',
+      'analysis-zone-line',
+      'analysis-marker-symbol'
+    ];
+
+    analysisLayers.forEach(id => {
+      if (map.getLayer(id)) {
+        map.moveLayer(id);
+      }
+    });
   },
 
   updateInfrastructureLayers: (map, data, isVisible) => {
@@ -832,6 +844,436 @@ export const MapLayersManager = {
     if (map.getLayer(layerId)) {
       map.setLayoutProperty(layerId, 'visibility', isVisible ? 'visible' : 'none');
     }
+  },
+
+  bringAnalysisToFront: (map) => {
+    const layers = [
+      'analysis-zone-fill',
+      'analysis-zone-line',
+      'analysis-marker-symbol'
+    ];
+
+    layers.forEach(layerId => {
+      if (map.getLayer(layerId)) {
+        map.moveLayer(layerId); 
+      }
+    });
+  },
+
+  updateAnalysisLayer: (map, lngLat, isVisible) => {
+    const sourceId = 'analysis-point-source';
+    const pointLayerId = 'analysis-point-layer';
+    const zoneLayerId = 'analysis-zone-layer';
+
+    if (!lngLat) {
+      if (map.getLayer(pointLayerId)) map.setLayoutProperty(pointLayerId, 'visibility', 'none');
+      if (map.getLayer(zoneLayerId)) map.setLayoutProperty(zoneLayerId, 'visibility', 'none');
+      return;
+    }
+
+    const geojson = {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [lngLat.lng, lngLat.lat] }
+      }]
+    };
+
+    if (!map.getSource(sourceId)) {
+      map.addSource(sourceId, { type: 'geojson', data: geojson });
+
+      map.addLayer({
+        id: zoneLayerId,
+        type: 'circle',
+        source: sourceId,
+        paint: {
+          'circle-radius': {
+            'base': 1.75,
+            'stops': [[12, 50], [15, 300], [18, 1200]]
+          },
+          'circle-color': '#3b82f6',
+          'circle-opacity': 0.2,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#3b82f6'
+        }
+      });
+
+      map.addLayer({
+        id: pointLayerId,
+        type: 'circle',
+        source: sourceId,
+        paint: {
+          'circle-radius': 8,
+          'circle-color': '#ffffff',
+          'circle-stroke-width': 3,
+          'circle-stroke-color': '#ef4444'
+        }
+      });
+    } else {
+      map.getSource(sourceId).setData(geojson);
+    }
+
+    const visibility = isVisible ? 'visible' : 'none';
+    map.setLayoutProperty(pointLayerId, 'visibility', visibility);
+    map.setLayoutProperty(zoneLayerId, 'visibility', visibility);
+  },
+
+  updateAnalysisZone: (map, lngLat, radius=1200) => {
+    if (!map) return;
+    const sourceId = 'analysis-zone-source';
+    const fillLayerId = 'analysis-zone-fill';
+    const lineLayerId = 'analysis-zone-line';
+    const markerLayerId = 'analysis-marker-symbol';
+    const iconName = 'analysis-pin-icon';
+
+    if (!lngLat) {
+      if (map.getLayer(fillLayerId)) map.setLayoutProperty(fillLayerId, 'visibility', 'none');
+      if (map.getLayer(lineLayerId)) map.setLayoutProperty(lineLayerId, 'visibility', 'none');
+      if (map.getLayer(markerLayerId)) map.setLayoutProperty(markerLayerId, 'visibility', 'none');
+      return;
+    }
+
+    const circlePolygon = MapLayersManager._createCirclePolygon(lngLat, radius);
+    const markerPoint = {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [lngLat.lng, lngLat.lat] }
+    };
+
+    if (!map.hasImage(iconName)) {
+      const pinSvg = `<svg width="32" height="42" viewBox="0 0 32 42" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 0C7.16344 0 0 7.16344 0 16C0 28 16 42 16 42C16 42 32 28 32 16C32 7.16344 24.8366 0 16 0Z" fill="#EF4444"/><circle cx="16" cy="16" r="6" fill="white"/></svg>`;
+      const img = new Image(32, 42);
+      const svgBlob = new Blob([pinSvg], {type: 'image/svg+xml;charset=utf-8'});
+      const url = URL.createObjectURL(svgBlob);
+      img.onload = () => {
+        if (map && map.getStyle() && !map.hasImage(iconName)) {
+          map.addImage(iconName, img);
+        }
+      };
+      img.src = url;
+    }
+    
+    const geojson = {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [lngLat.lng, lngLat.lat] }
+      }]
+    };
+
+    if (!map.getSource(sourceId)) {
+      map.addSource(sourceId, {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: [circlePolygon, markerPoint]
+        }
+      });
+
+      map.addLayer({
+        id: fillLayerId,
+        type: 'fill',
+        source: sourceId,
+        filter: ['==', '$type', 'Polygon'],
+        paint: {
+          'fill-color': '#3b82f6',
+          'fill-opacity': 0.15,
+          'fill-outline-color': '#19458b'
+        }
+      });
+
+      map.addLayer({
+        id: lineLayerId,
+        type: 'line',
+        source: sourceId,
+        filter: ['==', '$type', 'Polygon'],
+        paint: {
+          'line-color': '#3b82f6',
+          'line-width': 2.5,
+          'line-opacity': 0.6,
+        }
+      });
+
+      map.addLayer({
+        id: markerLayerId,
+        type: 'symbol',
+        source: sourceId,
+        filter: ['==', '$type', 'Point'],
+        layout: {
+          'icon-image': iconName,
+          'icon-size': 1,
+          'icon-anchor': 'bottom',
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+          'symbol-sort-key': 1000
+        }
+      });
+    } else {
+      map.getSource(sourceId).setData({
+        type: 'FeatureCollection',
+        features: [circlePolygon, markerPoint]
+      });
+      map.setLayoutProperty(fillLayerId, 'visibility', 'visible');
+      map.setLayoutProperty(lineLayerId, 'visibility', 'visible');
+      map.setLayoutProperty(markerLayerId, 'visibility', 'visible');
+    }
+
+    if (map.getLayer(fillLayerId)) map.moveLayer(fillLayerId);
+    if (map.getLayer(lineLayerId)) map.moveLayer(lineLayerId);
+    if (map.getLayer(markerLayerId)) map.moveLayer(markerLayerId);
+  },
+
+  calculateAnalysisStats: (lngLat, allData) => {
+    if (!lngLat || !allData?.grid?.features) return null;
+
+    const RADIUS_M = 1200;
+    let stats = {
+      totalPop: 0,
+      redCells: 0,
+      zhkPop: 0,
+      existingNearby: [],
+      plannedNearby: []
+    };
+
+    allData.grid.features.forEach(cell => {
+      const coords = cell.geometry.coordinates[0][0];
+      const cLng = (coords[0][0] + coords[2][0]) / 2;
+      const cLat = (coords[0][1] + coords[2][1]) / 2;
+      const dist = MapLayersManager._fastDistM(lngLat.lat, lngLat.lng, cLat, cLng);
+
+      if (dist <= RADIUS_M) {
+        stats.totalPop += parseFloat(cell.properties.population || 0);
+        if (cell.properties.pmsp_access_cat === 'red') stats.redCells++;
+      }
+    });
+
+    if (allData.zhk && allData.zhk.features) {
+      allData.zhk.features.forEach(zhk => {
+        const [zLng, zLat] = zhk.geometry.coordinates;
+        const dist = MapLayersManager._fastDistM(lngLat.lat, lngLat.lng, zLat, zLng);
+        
+        if (dist <= RADIUS_M) {
+          const populationFromZhk = parseFloat(zhk.properties.pop) || (parseFloat(zhk.properties.flats || 0) * 3.5);
+          stats.zhkPop += populationFromZhk;
+        }
+      });
+    }
+
+    if (allData.pmsp?.features) {
+      allData.pmsp.features.forEach(p => {
+        const [pLng, pLat] = p.geometry.coordinates;
+        const dist = MapLayersManager._fastDistM(lngLat.lat, lngLat.lng, pLat, pLng);
+        if (dist <= RADIUS_M) {
+          stats.existingNearby.push({ name: p.properties.name, dist: Math.round(dist) });
+        }
+      });
+      stats.existingNearby.sort((a, b) => a.dist - b.dist);
+    }
+
+    if (allData.plannedObjs?.features) {
+      allData.plannedObjs.features.forEach(p => {
+        if (p.properties.is_pmsp !== true && p.properties.is_pmsp !== 1) return;
+        const [pLng, pLat] = p.geometry.coordinates;
+        const dist = MapLayersManager._fastDistM(lngLat.lat, lngLat.lng, pLat, pLng);
+        if (dist <= RADIUS_M) {
+          stats.plannedNearby.push({ name: p.properties.name, dist: Math.round(dist) });
+        }
+      });
+      stats.plannedNearby.sort((a, b) => a.dist - b.dist);
+    }
+
+    const combinedPop = stats.totalPop + stats.zhkPop;
+
+    let score = 0;
+    if (combinedPop > 5000) score += 30;
+    if (stats.redCells > 5) score += 40;
+    if (stats.existingNearby.length === 0) score += 30;
+    if (stats.existingNearby.some(d => d.dist < 700)) score -= 40;
+    if (stats.plannedNearby.length > 0) score -= 60;
+    score = Math.max(0, Math.min(100, score));
+
+    let recommendation = "Врачебная амбулатория";
+    let capacity = 100;
+
+    if (combinedPop >= 30000) {
+      recommendation = "Городская поликлиника";
+      capacity = 500;
+    } else if (combinedPop >= 10000) {
+      recommendation = "Центр ПМСП";
+      capacity = 250;
+    } else if (combinedPop >= 2000) {
+      recommendation = "Врачебная амбулатория";
+      capacity = 100;
+    } else {
+      recommendation = "Медпункт / ФАП";
+      capacity = 40;
+    }
+
+    if (score < 40) {
+      recommendation = "Строительство не требуется";
+      capacity = 0;
+    }
+
+    return {
+      lngLat: lngLat,
+      population: Math.round(stats.totalPop),
+      zhkPop: Math.round(stats.zhkPop),
+      redCells: stats.redCells,
+      recommendation,
+      capacity,
+      verdict: score >= 80 ? "Идеально" : score >= 40 ? "Умеренно" : "Нецелесообразно",
+      score,
+      existingNearby: stats.existingNearby,
+      plannedNearby: stats.plannedNearby,
+      radius: RADIUS_M
+    };
+  },
+
+  _fastDistM: (lat1, lng1, lat2, lng2) => {
+    const dlat = (lat2 - lat1) * 111320;
+    const dlng = (lng2 - lng1) * 81375;
+    return Math.sqrt(dlat * dlat + dlng * dlng);
+  },
+
+  _createCirclePolygon: (center, radiusInMeters, points = 64) => {
+    const coords = {
+      lng: center.lng,
+      lat: center.lat
+    };
+    const ret = [];
+    const distanceX = radiusInMeters / (111320 * Math.cos(coords.lat * Math.PI / 180));
+    const distanceY = radiusInMeters / 110540;
+
+    for (let i = 0; i < points; i++) {
+      const theta = (i / points) * (2 * Math.PI);
+      const x = distanceX * Math.cos(theta);
+      const y = distanceY * Math.sin(theta);
+      ret.push([coords.lng + x, coords.lat + y]);
+    }
+    ret.push(ret[0]);
+
+    return {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [ret]
+      }
+    };
+  },
+
+  simulateImpact: (map, lngLat, radiusM) => {
+    if (!map || !map.getSource('grid-source')) return;
+
+    const features = map.queryRenderedFeatures({ layers: ['grid-layer-fill'] });
+    
+    features.forEach(f => {
+      try {
+        const featureId = f.id;
+        if (featureId === undefined) return;
+
+        const geometry = f.geometry;
+        if (!geometry || !geometry.coordinates) return;
+
+        let cLng, cLat;
+        if (geometry.type === 'Point') {
+          [cLng, cLat] = geometry.coordinates;
+        } else if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
+          const coords = geometry.type === 'Polygon' ? geometry.coordinates[0] : geometry.coordinates[0][0];
+          if (!coords || !coords[0]) return;
+          cLng = (coords[0][0] + coords[Math.floor(coords.length/2)][0]) / 2;
+          cLat = (coords[0][1] + coords[Math.floor(coords.length/2)][1]) / 2;
+        }
+
+        const dist = MapLayersManager._fastDistM(lngLat.lat, lngLat.lng, cLat, cLng);
+        map.setFeatureState(
+          { source: 'grid-source', id: featureId },
+          { improved: dist <= radiusM }
+        );
+      } catch (e) {
+      }
+    });
+  },
+
+  resetImpact: (map) => {
+    if (!map || !map.getSource('grid-source')) return;
+
+    try {
+      map.removeFeatureState({ source: 'grid-source' });
+    } catch (e) {
+      console.warn("Ошибка очистки:", e);
+    }
+  },
+
+  resetGridToOriginal: (map, originalGrid) => {
+    if (!map || !originalGrid || !originalGrid.features) return;
+
+    if (map.getSource('grid-source')) {
+      map.getSource('grid-source').setData(originalGrid);
+    }
+
+    MapLayersManager.resetImpact(map);
+  },
+
+  calculateHospitalAnalysisStats: (lngLat, allData) => {
+    if (!lngLat || !allData?.grid) return null;
+
+    const RADIUS_M = 3000; 
+    let stats = {
+      totalPop: 0,
+      existingNearby: [],
+      plannedNearby: []
+    };
+
+    allData.grid.features.forEach(cell => {
+      const coords = cell.geometry.coordinates[0][0];
+      const cLng = (coords[0][0] + coords[2][0]) / 2;
+      const cLat = (coords[0][1] + coords[2][1]) / 2;
+      const dist = MapLayersManager._fastDistM(lngLat.lat, lngLat.lng, cLat, cLng);
+      if (dist <= RADIUS_M) {
+        stats.totalPop += parseFloat(cell.properties.population || 0);
+      }
+    });
+
+    if (allData.hospitals) {
+      allData.hospitals.forEach(h => {
+        const dist = MapLayersManager._fastDistM(lngLat.lat, lngLat.lng, h.lat, h.lng);
+        if (dist <= RADIUS_M) {
+          stats.existingNearby.push({ name: h.name, dist: Math.round(dist) });
+        }
+      });
+    }
+
+    if (allData.planned && allData.planned.features) {
+      allData.planned.features.forEach(f => {
+        const [pLng, pLat] = f.geometry.coordinates;
+        const dist = MapLayersManager._fastDistM(lngLat.lat, lngLat.lng, pLat, pLng);
+        
+        if (dist <= RADIUS_M) {
+          stats.plannedNearby.push({ 
+            name: f.properties.name || f.properties.short_name || "Плановый объект", 
+            dist: Math.round(dist) 
+          });
+        }
+      });
+    }
+
+    stats.existingNearby.sort((a, b) => a.dist - b.dist);
+    stats.plannedNearby.sort((a, b) => a.dist - b.dist);
+
+    let score = stats.totalPop > 50000 ? 80 : 40;
+    if (stats.existingNearby.some(d => d.dist < 1500)) score -= 40;
+    if (stats.plannedNearby.length > 0) score -= 50;
+
+    return {
+      lngLat,
+      population: Math.round(stats.totalPop),
+      recommendation: score < 40 ? "Строительство не требуется" : "Многопрофильная больница",
+      capacity: score < 40 ? 0 : 250,
+      score: Math.max(0, score),
+      verdict: score >= 70 ? "Идеально" : score >= 40 ? "Умеренно" : "Нецелесообразно",
+      existingNearby: stats.existingNearby,
+      plannedNearby: stats.plannedNearby,
+      radius: RADIUS_M
+    };
   }
 };
 

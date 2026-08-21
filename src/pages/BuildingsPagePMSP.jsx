@@ -31,7 +31,8 @@ export default function BuildingsPagePMSP() {
 
   return (
     <div className="relative h-full w-full overflow-hidden">
-      <div className="absolute top-[20px] left-4 z-20 w-[220px] md:w-[280px]">
+      {/* <div className="absolute top-[20px] left-4 z-20 w-[220px] md:w-[280px]"> */}
+      <div className="absolute top-4 left-4 z-40 w-[280px] sm:w-[300px] max-w-[calc(100vw-32px)]">
         <BuildingsFilterPanel 
           selectedDistrict={selectedDistrict} setSelectedDistrict={setSelectedDistrict}
           selectedLayers={selectedLayers} setSelectedLayers={setSelectedLayers}
@@ -76,7 +77,7 @@ export default function BuildingsPagePMSP() {
         />
       </div>
 
-      <div className="absolute bottom-6 right-6 z-30">
+      <div className="absolute bottom-6 right-6 z-30 hidden sm:block">
         <BuildingLegend />
       </div>
     </div>

@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from "react"
 import MapView from "../components/PmspComponents/MapV"
 import { HealthcareService } from "../services/apiService"
 import GeoFilterPanel from "../components/GeoAnalysisPage/GeoFilterPanel"
-import AnalyticsPanel from "../components/GeoAnalysisPage/MapLegend/AnalyticsPanel"
+import GeoLegendPanel from "../components/GeoAnalysisPage/MapLegend/GeoLegendPanel"
 
 export default function GeoAnalysisPagePMSP() {
   const [geoMode, setGeoMode] = useState("walkaccess");
@@ -18,6 +18,7 @@ export default function GeoAnalysisPagePMSP() {
   const [selectedAffiliations, setSelectedAffiliations] = useState(["all"]);
   const [activeScenario, setActiveScenario] = useState('current');
   const [isPlanningActive, setIsPlanningActive] = useState(false);
+  const [isMapPlanningActive, setIsMapPlanningActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const mapRef = useRef();
 
@@ -29,6 +30,14 @@ export default function GeoAnalysisPagePMSP() {
     setActiveScenario('current');
     setSearchQuery("");
   };
+
+  useEffect(() => {
+    const handleToggle = (e) => {
+      setIsMapPlanningActive(e.detail.active);
+    };
+    window.addEventListener('toggle-planning-mode', handleToggle);
+    return () => window.removeEventListener('toggle-planning-mode', handleToggle);
+  }, []);
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
@@ -56,7 +65,6 @@ export default function GeoAnalysisPagePMSP() {
           isPlanningActive={isPlanningActive}
           setIsPlanningActive={setIsPlanningActive}
           onZoomTo={(zone) => mapRef.current?.zoomToLocation(zone)}
-          
         />
       </div>
       <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex shadow-2xl gap-2">
@@ -95,6 +103,7 @@ export default function GeoAnalysisPagePMSP() {
           setAvgPerson={setAvgPerson}
           activeScenario={activeScenario}
           isPlanningActive={isPlanningActive}
+          isMapPlanningActive={isMapPlanningActive}
           extraFilters={{
             search: searchQuery,
             techConditions: []
@@ -103,13 +112,8 @@ export default function GeoAnalysisPagePMSP() {
       </div>
 
       <div className="absolute bottom-20 right-6 z-30">
-        <AnalyticsPanel 
-          data={mapData?.pmsp}
-          onZoomTo={(item) => {
-            if (mapRef.current) {
-              mapRef.current.zoomToLocation(item);
-            }
-          }}
+        <GeoLegendPanel 
+          isMapPlanningMode={isMapPlanningActive}
         />
       </div>
     </div>

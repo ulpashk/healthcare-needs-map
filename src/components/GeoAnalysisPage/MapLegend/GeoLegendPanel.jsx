@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Info } from 'lucide-react';
 
-export default function GeoLegendPanel() {
+export default function GeoLegendPanel({isMapPlanningMode}) {
   const [isMinimized, setIsMinimized] = useState(false);
+
+  useEffect(() => {
+    if (isMapPlanningMode === true) {
+      setIsMinimized(true);
+    }
+  }, [isMapPlanningMode]);
 
   return (
     <div className={`w-[320px] bg-white shadow-2xl rounded-t-xl border border-gray-300 overflow-hidden transition-all duration-300 flex flex-col ${isMinimized ? 'h-[42px]' : 'h-fit'}`}>
-      
       <div 
         onClick={() => setIsMinimized(!isMinimized)}
         className="bg-[#1967d2] p-2.5 px-4 flex items-center justify-between text-white cursor-pointer hover:bg-[#1557b0] shrink-0"
